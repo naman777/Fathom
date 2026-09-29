@@ -153,7 +153,7 @@ def chat(req: ChatReq):
 @app.get("/api/stats")
 def stats():
     """Aggregate of the most recent requests: latency, tokens, cost and where the time went."""
-    return {**obs.stats(), "priced_models": sorted(config.MODEL_PRICES), "models": {
+    return {**obs.stats(), "priced_models": sorted(config.MODEL_PRICES), "prices": config.MODEL_PRICES, "models": {
         "answer": config.CHAT_MODEL, "rerank": config.RERANK_MODEL, "planner": config.PLANNER_MODEL,
         "embed": config.EMBED_MODEL}}
 
@@ -172,4 +172,8 @@ def eval_results():
         raw = json.loads(path.read_text(encoding="utf-8"))
         out[key] = {stage: {"runs": len(r.get("runs", [])), "summary": r["summary"], "by_type": r.get("by_type", {}),
                             "usage": r.get("usage", {})} for stage, r in raw.items()}
+    for key in ("injection", "upgrades"):  # optional extras: injection test summary, retrieval-upgrade experiment tables
+        path = config.ROOT / "eval" / "results" / f"{key}.json"
+        if path.exists():
+            out[key] = json.loads(path.read_text(encoding="utf-8"))
     return out

@@ -16,9 +16,10 @@ from concurrent.futures import ThreadPoolExecutor
 
 from core import config, db, llm, obs
 from ingest.safety import sanitize
+from retrieval import expand
 from retrieval.search import hybrid
 
-MAX_FOLLOWUPS = 1
+MAX_FOLLOWUPS = config.MAX_FOLLOWUPS
 MAX_EVIDENCE = 8
 
 PLAN_SYS = (
@@ -104,4 +105,6 @@ def run(conn, question: str, history=None, rerank=True, use_agent=True, k=5):
     chunks = list(evidence.values())
     if len(chunks) > MAX_EVIDENCE:
         chunks = sorted(chunks, key=lambda c: -c.get("rerank_score", c["score"]))[:MAX_EVIDENCE]
+    if config.NEIGHBOR_EXPAND and conn is not None:
+        chunks = expand.expand(conn, chunks, config.NEIGHBOR_EXPAND)
     yield {"type": "sources", "chunks": chunks}

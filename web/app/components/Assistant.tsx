@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Alert, Branch, Check, Chevron, Copy, Eye, Search, Sparkle } from "./icons";
+import RequestStats from "./RequestStats";
 import type { Msg, Source, Trace } from "./types";
 
 export default function Assistant({ m, onCite, onOpenSources }: { m: Msg; onCite: (s: Source) => void; onOpenSources: () => void }) {
@@ -50,8 +51,11 @@ export default function Assistant({ m, onCite, onOpenSources }: { m: Msg; onCite
                         </button>
                       );
                     }
-                    return <a href={href} target="_blank" rel="noreferrer" className="text-accent underline underline-offset-2">{children}</a>;
+                    // Model output is untrusted (a poisoned document may try to steer it): only plain http(s) links, no images.
+                    if (!/^https?:\/\//i.test(href || "")) return <span>{children}</span>;
+                    return <a href={href} target="_blank" rel="noopener noreferrer nofollow" className="text-accent underline underline-offset-2">{children}</a>;
                   },
+                  img: ({ alt }) => <span className="text-muted" title="Images in answers are blocked">[image blocked{alt ? `: ${alt}` : ""}]</span>,
                 }}
               >
                 {md}
@@ -76,13 +80,14 @@ export default function Assistant({ m, onCite, onOpenSources }: { m: Msg; onCite
               {copied ? <Check width={13} height={13} /> : <Copy width={13} height={13} />}
               {copied ? "Copied" : "Copy"}
             </button>
-            {m.timing?.total !== undefined && (
+            {!m.meta && m.timing?.total !== undefined && (
               <span className="tabular-nums">
                 retrieval {sec(m.timing.retrieval)} · first token {sec(m.timing.first)} · total {sec(m.timing.total)}
               </span>
             )}
           </div>
         )}
+        {!m.streaming && !m.error && m.meta && <RequestStats meta={m.meta} />}
       </div>
     </div>
   );

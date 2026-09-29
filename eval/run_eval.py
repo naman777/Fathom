@@ -86,13 +86,25 @@ def main():
     ap.add_argument("--out", default="results", help="output basename in eval/results/")
     ap.add_argument("--judge-model", default="", help="model for the answer judge (default: CHAT_MODEL); a small "
                     "non-reasoning model is far cheaper but changes the accuracy baseline")
+    ap.add_argument("--types", default="", help="only questions of these types, e.g. multi (multi-hop) or single")
+    ap.add_argument("--followups", type=int, default=None, help="max agent follow-up searches (default: config.MAX_FOLLOWUPS)")
+    ap.add_argument("--expand", type=int, default=None, help="neighbour chunks per side given to the answerer (default: config.NEIGHBOR_EXPAND)")
+    ap.add_argument("--lexical-mode", default="", help="or | or_norm | websearch | trigram")
     ap.add_argument("--answer-model", default="", help="model that writes eval answers (default: CHAT_MODEL)")
     a = ap.parse_args()
+    if a.followups is not None:
+        loop.MAX_FOLLOWUPS = a.followups
+    if a.expand is not None:
+        config.NEIGHBOR_EXPAND = a.expand
+    if a.lexical_mode:
+        config.LEXICAL_MODE = a.lexical_mode
     if a.judge_model:
         config.JUDGE_MODEL = a.judge_model
     if a.answer_model:
         config.CHAT_MODEL = a.answer_model
     golden = json.loads((config.ROOT / "eval" / a.golden).read_text(encoding="utf-8"))
+    if a.types:
+        golden = [g for g in golden if g.get("type", "single") in a.types.split(",")]
     if a.limit:
         golden = golden[: a.limit]
     wanted = [x for x in a.stages.split(",") if x] or [k for k in STAGES if not (a.skip_e2e and k in ("noagent", "agent"))]
