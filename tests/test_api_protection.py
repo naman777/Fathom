@@ -1,4 +1,4 @@
-"""Rate limiter, input caps, admin auth and CORS. None of these tests call OpenAI."""
+"""Rate limiter, input caps and CORS. None of these tests call OpenAI."""
 import pytest
 from fastapi.testclient import TestClient
 
@@ -12,7 +12,6 @@ def fresh(monkeypatch):
     limiter.hits.clear()
     monkeypatch.setattr(config, "RATE_LIMIT_ENABLED", True)
     monkeypatch.setattr(config, "TRUST_PROXY", False)
-    monkeypatch.setattr(config, "ADMIN_TOKEN", "")
     for name, val in dict(RL_CHAT_PER_MINUTE=3, RL_CHAT_PER_DAY=5, RL_UPLOAD_PER_HOUR=2,
                           RL_DELETE_PER_HOUR=2, RL_GLOBAL_PER_MINUTE=1000).items():
         monkeypatch.setattr(config, name, val)
