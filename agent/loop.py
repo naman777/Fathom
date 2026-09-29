@@ -13,7 +13,7 @@ optional follow-up hop (at most MAX_FOLLOWUPS) -> evidence.
 import re
 from concurrent.futures import ThreadPoolExecutor
 
-from core import db, llm
+from core import config, db, llm
 from retrieval.search import hybrid
 
 MAX_FOLLOWUPS = 1
@@ -25,9 +25,11 @@ PLAN_SYS = (
     "Use conversation context to resolve pronouns. Return JSON: {\"queries\": [\"...\"]} (max 4)."
 )
 REFLECT_SYS = (
-    "You judge whether gathered evidence is enough to fully answer the question. "
+    "You judge whether gathered evidence is enough to fully answer the question. Be strict about entities: "
+    "every entity or part named in the question must have supporting evidence. "
     "Return JSON: {\"sufficient\": true|false, \"missing\": \"what is missing\", "
-    "\"next_query\": \"a standalone search query to find it, or empty\"}."
+    "\"next_query\": \"ONE standalone search query about a SINGLE entity/topic that is missing "
+    "(never combine several entities or use ';'), or empty\"}."
 )
 
 
@@ -53,7 +55,7 @@ def run(conn, question: str, history=None, rerank=True, use_agent=True, k=5):
     queries = [question]
     if use_agent and (history or _looks_multipart(question)):
         plan = llm.chat_json([{"role": "system", "content": PLAN_SYS},
-                              {"role": "user", "content": f"{ctx}Question: {question}"}], max_tokens=200)
+                              {"role": "user", "content": f"{ctx}Question: {question}"}], max_tokens=200, model=config.PLANNER_MODEL)
         queries = [q for q in plan.get("queries", []) if isinstance(q, str) and q.strip()][:4] or [question]
     yield {"type": "plan", "sub_questions": queries}
 
@@ -84,7 +86,7 @@ def run(conn, question: str, history=None, rerank=True, use_agent=True, k=5):
             listing = "\n".join(f"- {e['content'][:300]}" for e in evidence.values())
             ref = llm.chat_json([{"role": "system", "content": REFLECT_SYS},
                                  {"role": "user", "content": f"Question: {question}\n\nEvidence:\n{listing}"}],
-                                max_tokens=150)
+                                max_tokens=150, model=config.PLANNER_MODEL)
             nq = (ref.get("next_query") or "").strip()
             suff = bool(ref.get("sufficient", True))
             yield {"type": "reflect", "sufficient": suff, "missing": ref.get("missing", ""), "next_query": nq}
