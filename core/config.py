@@ -33,6 +33,9 @@ LOCAL_RERANK_CANDIDATES = int(os.environ.get("LOCAL_RERANK_CANDIDATES", "20"))
 REASONING_EFFORT = os.environ.get("REASONING_EFFORT", "low")
 EMBED_MODEL = os.environ.get("EMBED_MODEL", "text-embedding-3-small")
 EMBED_DIM = 1536
+# Chunking (characters). Changing these only affects documents ingested afterwards.
+CHUNK_TARGET = int(os.environ.get("CHUNK_TARGET", "900"))
+CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", "150"))
 
 
 def _int(name: str, default: int) -> int:
