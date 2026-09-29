@@ -51,3 +51,17 @@ def test_noise_flag_and_pm_formatting():
     assert noise_flag(lo, {"mean": 0.95, "sd": 0.01, "n": 3}) == "up"
     assert noise_flag({"mean": 0.8, "sd": 0.0, "n": 1}, {"mean": 0.9, "sd": 0.0, "n": 1}).startswith("n/a")
     assert pm({"mean": 0.9, "sd": 0.0}) == "0.90" and pm({"mean": 0.9, "sd": 0.02}) == "0.90 ± 0.02"
+
+
+def test_usage_accounting_and_delta():
+    from types import SimpleNamespace as NS
+    from core import llm
+    from eval.run_eval import usage_delta
+    llm.USAGE.clear()
+    llm._record("m", NS(prompt_tokens=10, completion_tokens=2))
+    before = llm.usage_snapshot()
+    llm._record("m", NS(prompt_tokens=5, completion_tokens=1))
+    llm._record("other", NS(prompt_tokens=7, completion_tokens=0))
+    llm._record("m", None)                                   # streaming events without usage are ignored
+    assert usage_delta(before, llm.usage_snapshot()) == {"m": [5, 1, 1], "other": [7, 0, 1]}
+    llm.USAGE.clear()

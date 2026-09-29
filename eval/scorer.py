@@ -1,7 +1,7 @@
 import re
 import statistics
 
-from core import llm
+from core import config, llm
 
 
 def norm(s: str) -> str:
@@ -39,7 +39,7 @@ def judge(item: dict, chunks: list[dict], answer: str) -> dict:
     r = llm.chat_json([{"role": "system", "content": JUDGE_SYS},
                        {"role": "user", "content":
                         f"Sources:\n{src}\n\nQuestion: {item['question']}\nGold: {item['answer']}\nAnswer: {answer}"}],
-                      max_tokens=100)
+                      max_tokens=100, model=config.JUDGE_MODEL or None)
     claims = max(int(r.get("claims", 0) or 0), 0)
     uns = min(max(int(r.get("unsupported", 0) or 0), 0), claims)
     return {"correct": bool(r.get("correct")), "claims": claims, "unsupported": uns}

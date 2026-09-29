@@ -318,6 +318,26 @@ full-hit, **600 chars 0.77 ± 0.03**, 900 chars 0.67 ± 0.06. 600 looks best but
 cannot settle it, and it could not be checked on the synthetic set without re-ingesting those documents, so the default is
 unchanged. Worth re-testing on a larger labelled set. `python -m eval.tune_rerank` reproduces the pool sweep.
 
+### Keeping evaluation cheap
+
+Every LLM call is counted by model (`core/llm.py`) and each eval writes a **Token usage** table, so cost is visible before you
+scale a run. Measured on 12 synthetic questions, 1 run: the reranker (`gpt-4.1-mini`, 20 candidates) uses about 3.5k prompt
+tokens per question; each answered question costs 2 `gpt-6-luna` calls (answer + judge, about 1k prompt tokens each), and the
+agent loop adds planner and reflector calls on top. Ways to spend less:
+
+| Need | Command | Calls made |
+|---|---|---|
+| Tune retrieval (chunking, pool size, fusion) | `python -m eval.run_eval --skip-e2e` or `python -m eval.tune_rerank` | small-model rerank only; no answers, no judge |
+| Re-run one stage | `--stages rerank,agent` (choices: lexical, dense, hybrid, rerank, noagent, agent) | only those stages |
+| Cheaper grading during development | `--judge-model gpt-4.1-mini` | judge is half of the answered-question spend; changes the accuracy baseline, so do not compare across judges |
+| Cheaper answers during development | `--answer-model gpt-4.1-mini` | also affects the judge unless `--judge-model` is set |
+| Fewer repeats | `--runs 2` | error bars get wider |
+
+The no-agent stage reuses the previous stage's retrieval and rerank result (same chunks, paired by run), so it makes no
+duplicate search or rerank calls. Only use the full default run (`--runs 3`, all stages) for numbers you intend to publish.
+The OpenAI Batch API (50% cheaper, asynchronous) suits the independent judge calls, but the agent loop is a chain of
+dependent calls that would need one batch round per step, so it is not used here.
+
 ### Model and reranker comparisons
 
 Reranker (full-hit@3, sequential; `python -m eval.bench_rerank <model> ...`):

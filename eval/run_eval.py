@@ -10,7 +10,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from agent import loop
-from core import config, db
+from core import config, db, llm
 from eval import scorer
 from generation import prompt
 from retrieval.search import hybrid
@@ -18,26 +18,33 @@ from retrieval.search import hybrid
 RES = config.ROOT / "eval" / "results"
 
 
-def retrieval_stage(golden, k, **kw):
+def retrieval_stage(golden, k, keep_chunks=False, **kw):
     def one(item):
         with db.connect() as c:
             t = time.time()
             chunks = hybrid(c, item["question"], k=k, **kw)
             ms = (time.time() - t) * 1000
-        return {"id": item["id"], "ms": ms, **scorer.retrieval_scores(item, chunks, k)}
+        row = {"id": item["id"], "ms": ms, **scorer.retrieval_scores(item, chunks, k)}
+        return {**row, "_chunks": chunks} if keep_chunks else row
     with ThreadPoolExecutor(4) as ex:
         return list(ex.map(one, golden))
 
 
-def e2e_stage(golden, k, use_agent):
+def e2e_stage(golden, k, use_agent, reuse=None):
+    """Full pipeline. `reuse` maps question id -> (chunks, retrieval_ms) from an identical hybrid+rerank retrieval, so the
+    no-agent pipeline does not pay for the same search and rerank calls a second time."""
     def one(item):
         with db.connect() as c:
             t = time.time()
-            chunks = []
-            for ev in loop.run(c, item["question"], rerank=True, use_agent=use_agent, k=k):
-                if ev["type"] == "sources":
-                    chunks = ev["chunks"]
-            ret_ms = (time.time() - t) * 1000
+            if reuse is not None:
+                chunks, ret_ms = reuse[item["id"]]
+            else:
+                chunks = []
+                for ev in loop.run(c, item["question"], rerank=True, use_agent=use_agent, k=k):
+                    if ev["type"] == "sources":
+                        chunks = ev["chunks"]
+                ret_ms = (time.time() - t) * 1000
+            t = time.time() - ret_ms / 1000                  # first-token / end-to-end still include the retrieval time
             first, parts = None, []
             for tok in prompt.answer_stream(item["question"], chunks):
                 if first is None:
@@ -52,44 +59,76 @@ def e2e_stage(golden, k, use_agent):
         return list(ex.map(one, golden))
 
 
+STAGES = {  # key -> (display name, repeatable). Deterministic stages run once; anything that calls an LLM is repeated.
+    "lexical": ("lexical (BM25-style FTS)", False),
+    "dense": ("dense (pgvector)", False),
+    "hybrid": ("hybrid (RRF)", False),
+    "rerank": ("hybrid + rerank", True),
+    "noagent": ("full pipeline, no agent", True),
+    "agent": ("full pipeline + agent loop", True),
+}
+
+
+def usage_delta(before, after):
+    zero = [0, 0, 0]
+    return {m: [a - b for a, b in zip(v, before.get(m, zero))] for m, v in after.items()
+            if any(a != b for a, b in zip(v, before.get(m, zero)))}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--k", type=int, default=5)
-    ap.add_argument("--skip-e2e", action="store_true")
+    ap.add_argument("--skip-e2e", action="store_true", help="retrieval stages only (no answer or judge calls)")
+    ap.add_argument("--stages", default="", help=f"comma list of {','.join(STAGES)} (default: all)")
     ap.add_argument("--runs", type=int, default=3, help="repeat each LLM-dependent stage N times and report mean +/- sd")
     ap.add_argument("--golden", default="golden_set.json", help="file in eval/ (e.g. real_golden_set.json)")
     ap.add_argument("--out", default="results", help="output basename in eval/results/")
+    ap.add_argument("--judge-model", default="", help="model for the answer judge (default: CHAT_MODEL); a small "
+                    "non-reasoning model is far cheaper but changes the accuracy baseline")
+    ap.add_argument("--answer-model", default="", help="model that writes eval answers (default: CHAT_MODEL)")
     a = ap.parse_args()
+    if a.judge_model:
+        config.JUDGE_MODEL = a.judge_model
+    if a.answer_model:
+        config.CHAT_MODEL = a.answer_model
     golden = json.loads((config.ROOT / "eval" / a.golden).read_text(encoding="utf-8"))
     if a.limit:
         golden = golden[: a.limit]
-    # (runner, repeatable): lexical/dense/hybrid are deterministic for a fixed index, so one run is enough;
-    # anything that calls an LLM (rerank, planner, reflector, answerer, judge) is repeated --runs times.
-    stages = {
-        "lexical (BM25-style FTS)": (lambda: retrieval_stage(golden, a.k, mode="lexical", rerank=False), False),
-        "dense (pgvector)": (lambda: retrieval_stage(golden, a.k, mode="dense", rerank=False), False),
-        "hybrid (RRF)": (lambda: retrieval_stage(golden, a.k, mode="hybrid", rerank=False), False),
-        "hybrid + rerank": (lambda: retrieval_stage(golden, a.k, mode="hybrid", rerank=True), True),
-    }
-    if not a.skip_e2e:
-        stages["full pipeline, no agent"] = (lambda: e2e_stage(golden, a.k, False), True)
-        stages["full pipeline + agent loop"] = (lambda: e2e_stage(golden, a.k, True), True)
-    results = {}
+    wanted = [x for x in a.stages.split(",") if x] or [k for k in STAGES if not (a.skip_e2e and k in ("noagent", "agent"))]
+    unknown = [x for x in wanted if x not in STAGES]
+    if unknown:
+        ap.error(f"unknown stage(s) {unknown}; choose from {list(STAGES)}")
+    results, rerank_runs = {}, []
     types = sorted({g.get("type", "single") for g in golden})
-    for name, (fn, repeat) in stages.items():
+
+    def run_once(key, i):
+        if key in ("lexical", "dense", "hybrid"):
+            return retrieval_stage(golden, a.k, mode=key, rerank=False)
+        if key == "rerank":
+            rows = retrieval_stage(golden, a.k, keep_chunks=True, mode="hybrid", rerank=True)
+            rerank_runs.append({r["id"]: (r["_chunks"], r["ms"]) for r in rows})
+            return [{k: v for k, v in r.items() if k != "_chunks"} for r in rows]
+        if key == "noagent":
+            return e2e_stage(golden, a.k, False, reuse=rerank_runs[i] if i < len(rerank_runs) else None)
+        return e2e_stage(golden, a.k, True)
+
+    for key in (k for k in STAGES if k in wanted):
+        name, repeat = STAGES[key]
         n_runs = a.runs if repeat else 1
-        runs = []
+        runs, before = [], llm.usage_snapshot()
         for i in range(n_runs):
             print(f"running: {name} (run {i + 1}/{n_runs})", flush=True)
-            runs.append(fn())
+            runs.append(run_once(key, i))
         results[name] = {
             "summary": scorer.aggregate([scorer.summarize(rows) for rows in runs]),
             "runs": [scorer.summarize(rows) for rows in runs],
             "by_type": {t: scorer.aggregate([scorer.summarize([r for r, g in zip(rows, golden) if g.get("type", "single") == t]) for rows in runs])
                         for t in types},
+            "usage": usage_delta(before, llm.usage_snapshot()),
             "rows": runs[-1]}
         print({k: f"{v['mean']:.3f}+/-{v['sd']:.3f}" for k, v in results[name]["summary"].items()}, flush=True)
+        print("  tokens [prompt, completion, calls]:", results[name]["usage"], flush=True)
     RES.mkdir(parents=True, exist_ok=True)
     (RES / f"{a.out}.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
     (RES / f"{a.out}.md").write_text(to_markdown(results, a.k, len(golden)), encoding="utf-8")
@@ -138,6 +177,13 @@ def to_markdown(results, k, n):
         lines += ["", "## Multi-hop questions only", "", "| Stage | Recall@K | Full-hit@K |", "|---|---|---|"]
         for n, s in multi.items():
             lines.append(f"| {n} | {pm(s['recall@k'])} | {pm(s['full_hit@k'])} |")
+    usage = {n: r["usage"] for n, r in results.items() if r.get("usage")}
+    if usage:
+        lines += ["", "## Token usage (all runs of the stage; multiply by your model prices)", "",
+                  "| Stage | Model | Prompt tokens | Completion tokens | Calls |", "|---|---|---|---|---|"]
+        for n, u in usage.items():
+            for m, (pt, ct, calls) in sorted(u.items()):
+                lines.append(f"| {n} | {m} | {pt:,} | {ct:,} | {calls:,} |")
     return "\n".join(lines) + "\n"
 
 
