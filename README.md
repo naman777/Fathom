@@ -251,7 +251,7 @@ end to end). Full output: [`eval/results/results.md`](eval/results/results.md) a
 `gpt-6-luna` (the cheapest model available to this project). One retrieval-only run on the synthetic set with `gpt-6-luna`
 as reranker (20 candidates): full-hit@5 0.93, MRR 0.91 (vs 0.89 / 0.86 with `gpt-4.1-mini`), but retrieval latency p50 / p95
 3.0 s / 4.8 s (vs 1.7 s / 2.2 s), because it is a reasoning model. Quality is at least as good; latency is the price. Set
-`RERANK_MODEL=gpt-4.1-mini` to trade back. The RFC and agent-loop numbers have not been re-run on `gpt-6-luna`.
+`RERANK_MODEL=gpt-4.1-mini` to trade back. The RFC results were re-run on `gpt-6-luna` (see below); the synthetic tables were not.
 
 ### Results on the synthetic corpus (K = 5, 72 questions, mean ± sd over 3 runs)
 
@@ -288,21 +288,31 @@ distractors). The 20 questions (15 single-passage, 5 two-part) are in `eval/real
 `eval/build_real_golden.py`: each has a verbatim evidence sentence from the RFC text, and questions are phrased differently
 from the source. Full output: [`eval/results/results_real_rfc.md`](eval/results/results_real_rfc.md).
 
-| Stage | Recall@5 | Full-hit@5 | MRR |
-|---|---|---|---|
-| lexical (Postgres FTS) | 0.42 | 0.35 | 0.24 |
-| dense (pgvector) | 0.53 | 0.45 | 0.53 |
-| hybrid (RRF) | 0.50 | 0.40 | 0.47 |
-| hybrid + rerank | 0.72 ± 0.04 | 0.65 ± 0.04 | 0.74 ± 0.05 |
-| full pipeline, no agent | 0.76 ± 0.03 | 0.68 ± 0.03 | 0.76 ± 0.04 |
-| full pipeline + agent loop | 0.81 ± 0.01 | 0.78 ± 0.03 | 0.74 ± 0.00 |
+Reranker and planner `gpt-6-luna` (the current default) versus `gpt-4.1-mini` (earlier run, same questions, 20 candidates):
 
-Answer accuracy 0.86 ± 0.04 without the agent, 0.90 ± 0.05 with it; unsupported claims about 1% either way. Multi-part
-questions (5) full-hit: 0.36 ± 0.09 without the agent, **0.72 ± 0.11** with it.
+| Stage | Recall@5 | Full-hit@5 (`gpt-6-luna`) | Full-hit@5 (`gpt-4.1-mini`) | MRR (`gpt-6-luna`) |
+|---|---|---|---|---|
+| lexical (Postgres FTS) | 0.42 | 0.35 | 0.35 | 0.24 |
+| dense (pgvector) | 0.53 | 0.45 | 0.45 | 0.53 |
+| hybrid (RRF) | 0.50 | 0.40 | 0.40 | 0.47 |
+| hybrid + rerank | 0.71 ± 0.01 | 0.60 | 0.65 ± 0.04 | 0.77 ± 0.03 |
+| full pipeline + agent loop | 0.78 ± 0.03 | 0.74 ± 0.04 | 0.78 ± 0.03 | 0.71 ± 0.04 |
+
+| Generation (`gpt-6-luna`) | Answer accuracy | Unsupported-claim rate | End-to-end p50 / p95 (ms) |
+|---|---|---|---|
+| no agent | 0.82 ± 0.06 | 0.041 ± 0.017 | 4267 / 6367 |
+| with agent loop | 0.89 ± 0.04 | 0.005 ± 0.010 | 5759 / 17163 |
+
+(`gpt-4.1-mini` run: accuracy 0.86 / 0.90, end to end p95 4978 / 8505 ms.) Multi-part questions (5), full-hit: with
+`gpt-6-luna` 0.00 without the agent (mini: 0.36 ± 0.09) and **0.72 ± 0.11** with it (mini: 0.72 ± 0.11).
 
 Takeaways: absolute quality on real text is much lower than on synthetic text, and the ranking of retrievers differs (lexical
 is the weakest here, the strongest on synthetic text). Reranking and the agent loop both help on real text, and the agent
-loop's gain on multi-part questions is large and outside the noise. With 20 questions one question is 5 points of full-hit,
+loop's gain on multi-part questions is large and outside the noise. `gpt-6-luna` as reranker is no better than
+`gpt-4.1-mini` on this set (0.60 vs 0.65 full-hit, about one sd apart, and worse on multi-part retrieval without the agent)
+and is much slower (retrieval p50 2.8 s vs 1.9 s, agent-loop end-to-end p95 17 s vs 8.5 s), so the earlier synthetic-set
+advantage for `gpt-6-luna` did not replicate. It stays the default only because of cost; if latency matters, set
+`RERANK_MODEL=gpt-4.1-mini` and `PLANNER_MODEL=gpt-4.1-mini`. With 20 questions one question is 5 points of full-hit,
 so treat differences of a few points as noise.
 
 ### What the real-corpus run found and fixed
