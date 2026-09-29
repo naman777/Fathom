@@ -1,0 +1,942 @@
+[
+  {
+    "question": "Who were the founders of Meridian Robotics?",
+    "answer": "Dr. Emily Chen, Marcus Tobias, and Dr. Angela Verity",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Meridian Robotics",
+        "quote": "Meridian Robotics was established in 2010 in Austin, Texas, by a trio of engineers: Dr. Emily Chen, an expert in artificial intelligence; Marcus Tobias, a mechanical engineer with experience in automation; and Dr. Angela Verity, a software developer specializing in machine learning algorithms."
+      }
+    ],
+    "id": 1
+  },
+  {
+    "question": "What significant recognition did the company receive in 2018?",
+    "answer": "Innovative Tech Award",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Meridian Robotics",
+        "quote": "Meridian Robotics received the prestigious *Innovative Tech Award* at the 2018 Global Automation Summit, recognizing its contribution to warehouse automation technologies."
+      }
+    ],
+    "id": 2
+  },
+  {
+    "question": "What was the purpose of the Employee Transition Program initiated in 2023?",
+    "answer": "Reskilling initiatives for affected workers to transition into new roles",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Meridian Robotics",
+        "quote": "In response, the company initiated a new policy called the **Employee Transition Program**, which included reskilling initiatives, allowing affected workers to transition into new roles within the organization."
+      }
+    ],
+    "id": 3
+  },
+  {
+    "question": "What is the primary purpose of the Valley Crest Dam?",
+    "answer": "Municipal and agricultural irrigation.",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Halvorsen Basin Water Authority",
+        "quote": "Holds a capacity of 1.2 billion gallons, primarily for municipal and agricultural irrigation."
+      }
+    ],
+    "id": 4
+  },
+  {
+    "question": "How much water can the Northwater Treatment Facility treat daily?",
+    "answer": "60 million gallons.",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Halvorsen Basin Water Authority",
+        "quote": "Northwater Treatment Facility: 60 MGD"
+      }
+    ],
+    "id": 5
+  },
+  {
+    "question": "Who is the current Director of the HBWA and when was she appointed?",
+    "answer": "Rebecca Lindstrom, appointed in 2021.",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Halvorsen Basin Water Authority",
+        "quote": "Director: Rebecca Lindstrom, appointed in 2021, has over 25 years of experience in environmental management and policy-making."
+      }
+    ],
+    "id": 6
+  },
+  {
+    "question": "What is the primary hub of Kestrel Airlines?",
+    "answer": "Woodvale International Airport (WVA) is the primary hub with 70 peak daily departures.",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Kestrel Airlines",
+        "quote": "Woodvale International Airport (WVA): The primary hub with 70 peak daily departures."
+      }
+    ],
+    "id": 7
+  },
+  {
+    "question": "What is the average age of Kestrel Airlines' fleet?",
+    "answer": "The average age of Kestrel's fleet is 6.5 years.",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Kestrel Airlines",
+        "quote": "The average age of Kestrel's fleet is 6.5 years, which is significantly younger than the industry average of 11 years."
+      }
+    ],
+    "id": 8
+  },
+  {
+    "question": "What initiative did Kestrel Airlines implement to enhance safety in 2021?",
+    "answer": "The airline implemented the 'FlySafe' program.",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Kestrel Airlines",
+        "quote": "In 2021, Kestrel Airlines implemented the \u201cFlySafe\u201d program, which includes enhanced pilot training, regular safety drills, and a comprehensive inspection regime."
+      }
+    ],
+    "id": 9
+  },
+  {
+    "question": "What is the estimated cost for the construction of the upcoming Red Line?",
+    "answer": "$200 million",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Tessaly Municipal Transit System",
+        "quote": "Construction is set to begin in 2025, with an estimated cost of $200 million."
+      }
+    ],
+    "id": 10
+  },
+  {
+    "question": "How many members are on the Board of Directors for the Tessaly Transit Authority?",
+    "answer": "7 members",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Tessaly Municipal Transit System",
+        "quote": "The TTA Board consists of 7 members, appointed by the Mayor of Tessaly, with staggered 4-year terms."
+      }
+    ],
+    "id": 11
+  },
+  {
+    "question": "What percentage of daily transit users rely on bus services?",
+    "answer": "40%",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Tessaly Municipal Transit System",
+        "quote": "Breakdowns indicate that approximately 60% of daily transit users rely on light rail services, while 40% opt for bus services."
+      }
+    ],
+    "id": 12
+  },
+  {
+    "question": "Which project transformed the city's main transit hub and when was it completed?",
+    "answer": "Central Station Redevelopment, completed in 2022",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Tessaly Municipal Transit System",
+        "quote": "Completed in 2022, the $80 million Central Station Redevelopment Initiative transformed the city's main transit hub."
+      }
+    ],
+    "id": 13
+  },
+  {
+    "question": "What initiative does the Center for Advanced Environmental Studies focus on regarding local waterways?",
+    "answer": "Water Quality Initiative",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Brightwater University",
+        "quote": "The **Water Quality Initiative**, which monitors local waterways and develops methods to reduce pollution."
+      }
+    ],
+    "id": 14
+  },
+  {
+    "question": "What is the total installed capacity of Lumen Grid Energy as of December 2023?",
+    "answer": "6,185 MW",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Lumen Grid Energy",
+        "quote": "Lumen Grid Energy operates a diverse portfolio of power plants across Novaterra, totaling **6,185 MW** of installed capacity as of December 2023."
+      }
+    ],
+    "id": 15
+  },
+  {
+    "question": "Which facility is the largest gas-fired generator in Novaterra?",
+    "answer": "Ironclad Natural Gas Plant",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Lumen Grid Energy",
+        "quote": "Ironclad boasts **1,200 MW** capacity, making it the largest gas-fired generator in Novaterra."
+      }
+    ],
+    "id": 16
+  },
+  {
+    "question": "When was the Renewable Energy Promotion Act (REPA) established?",
+    "answer": "2018",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Lumen Grid Energy",
+        "quote": "As part of the **Renewable Energy Promotion Act (REPA) of 2018**, LGE is required to meet specified renewable energy generation targets."
+      }
+    ],
+    "id": 17
+  },
+  {
+    "question": "What is the area of Isola Splendida?",
+    "answer": "15.2 square miles",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Varga Archipelago Tourism Board",
+        "quote": "Area: 15.2 square miles"
+      }
+    ],
+    "id": 18
+  },
+  {
+    "question": "What percentage of visitors came for leisure purposes?",
+    "answer": "70%",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Varga Archipelago Tourism Board",
+        "quote": "Leisure: 70%"
+      }
+    ],
+    "id": 19
+  },
+  {
+    "question": "What is the name of Corvane Airways' loyalty program?",
+    "answer": "Corvane Rewards",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Corvane Airways",
+        "quote": "Corvane Rewards, launched in 1999, has over 5 million active members as of 2023."
+      }
+    ],
+    "id": 20
+  },
+  {
+    "question": "Who co-founded Northgate Robotics alongside Dr. Eleanor Whitewood?",
+    "answer": "Marcus Lin",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Northgate Robotics",
+        "quote": "Northgate Robotics was founded in 2010 by Dr. Eleanor Whitewood and engineer Marcus Lin."
+      }
+    ],
+    "id": 21
+  },
+  {
+    "question": "What is the capacity of Lake Vranov?",
+    "answer": "150 million cubic meters",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Ostrava Coast Water Board",
+        "quote": "**Capacity:** 150 million cubic meters"
+      }
+    ],
+    "id": 22
+  },
+  {
+    "question": "When was the Drought Action Plan officially adopted?",
+    "answer": "2019",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Ostrava Coast Water Board",
+        "quote": "The **Drought Action Plan (DAP)** was officially adopted in 2019."
+      }
+    ],
+    "id": 23
+  },
+  {
+    "question": "How much water can the Ostrava WTP treat per day?",
+    "answer": "100,000 cubic meters per day",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Ostrava Coast Water Board",
+        "quote": "**Capacity:** 100,000 cubic meters per day"
+      }
+    ],
+    "id": 24
+  },
+  {
+    "question": "What percentage of water samples pass the Novomiran Water Quality Regulations as of 2023?",
+    "answer": "99.5%",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Ostrava Coast Water Board",
+        "quote": "As of 2023, **99.5%** of water samples pass the stringent quality assessments mandated by the ministry."
+      }
+    ],
+    "id": 25
+  },
+  {
+    "question": "What is the mechanism of action for VLD-101?",
+    "answer": "VLD-101 inhibits the activity of the cytokine IL-6, reducing inflammation.",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Valdris Therapeutics",
+        "quote": "VLD-101 inhibits the activity of the cytokine IL-6, reducing inflammation."
+      }
+    ],
+    "id": 26
+  },
+  {
+    "question": "How many patents does Valdris Therapeutics hold as of October 2023?",
+    "answer": "35 patents",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Valdris Therapeutics",
+        "quote": "As of October 2023, the company holds 35 patents across its drug portfolio, covering various aspects of formulation, manufacturing, and methods of administration."
+      }
+    ],
+    "id": 27
+  },
+  {
+    "question": "Who is the current chair of the PRRA Board of Directors?",
+    "answer": "Dr. Ellen Waverly",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Pellham Regional Rail Authority",
+        "quote": "The current chair is Dr. Ellen Waverly, whose term began in January 2020."
+      }
+    ],
+    "id": 28
+  },
+  {
+    "question": "How many major rail lines does the PRRA operate?",
+    "answer": "Five major rail lines",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Pellham Regional Rail Authority",
+        "quote": "PRRA operates an extensive network comprising five major rail lines that collectively span over 300 miles."
+      }
+    ],
+    "id": 29
+  },
+  {
+    "question": "What is the founding year of the Ashcombe Institute of Technology?",
+    "answer": "1968",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Ashcombe Institute of Technology",
+        "quote": "Founded in 1968, the Ashcombe Institute of Technology (AIT) is a prestigious institution located in Ashcombe, New Hampshire."
+      }
+    ],
+    "id": 30
+  },
+  {
+    "question": "How many students are currently enrolled at AIT?",
+    "answer": "Approximately 12,000 students",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Ashcombe Institute of Technology",
+        "quote": "Current Enrollment: Approximately 12,000 students"
+      }
+    ],
+    "id": 31
+  },
+  {
+    "question": "Which college at AIT offers a Master's in Applied Psychology?",
+    "answer": "College of Arts and Sciences",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Ashcombe Institute of Technology",
+        "quote": "- **Programs Offered:**\n  - Bachelor of Arts in Digital Media\n  - Bachelor of Science in Environmental Science\n  - Master's in Applied Psychology"
+      }
+    ],
+    "id": 32
+  },
+  {
+    "question": "What is the tuition fee for undergraduate students for the academic year 2023-2024?",
+    "answer": "$54,000 per year",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Ashcombe Institute of Technology",
+        "quote": "- **Undergraduate Tuition:** $54,000 per year"
+      }
+    ],
+    "id": 33
+  },
+  {
+    "question": "What is the capacity of the Green Valley Wind Farm?",
+    "answer": "150 MW",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Solmere Power Cooperative",
+        "quote": "Capacity: 150 MW"
+      }
+    ],
+    "id": 34
+  },
+  {
+    "question": "When was the Crystal Lake Solar Array commissioned?",
+    "answer": "September 2016",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Solmere Power Cooperative",
+        "quote": "Commissioning Date: September 2016"
+      }
+    ],
+    "id": 35
+  },
+  {
+    "question": "What is the average outage rate maintained by SPC?",
+    "answer": "2.3%",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Solmere Power Cooperative",
+        "quote": "annual average outage rate of **2.3%**"
+      }
+    ],
+    "id": 36
+  },
+  {
+    "question": "What is the total installed capacity of SPC as of August 2023?",
+    "answer": "575 MW",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Solmere Power Cooperative",
+        "quote": "the total installed capacity of SPC stands at **575 MW**"
+      }
+    ],
+    "id": 37
+  },
+  {
+    "question": "What is the main economic contribution of tourism to the Ionic Isles?",
+    "answer": "The tourism sector accounted for 35% of the local economy.",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Ionic Isles Visitor Bureau",
+        "quote": "The tourism sector accounted for **35% of the local economy**, demonstrating the islands' dependence on sustainable visitor engagement."
+      }
+    ],
+    "id": 38
+  },
+  {
+    "question": "How many visitors attended the Aetria Wellness Festival in 2023?",
+    "answer": "15,000 visitors.",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Ionic Isles Visitor Bureau",
+        "quote": "Attendance: 15,000 visitors in 2023."
+      }
+    ],
+    "id": 39
+  },
+  {
+    "question": "Which island is known for its historical ruins and the ancient Navonian Temple?",
+    "answer": "Navon.",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Ionic Isles Visitor Bureau",
+        "quote": "Famed for its historical ruins, including the ancient Navonian Temple dating back to 123 BC, Navon offers an intriguing glimpse into the past."
+      }
+    ],
+    "id": 40
+  },
+  {
+    "question": "What is the frequency of the ferry service from Aetria to Navon during the summer season?",
+    "answer": "Daily.",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Ionic Isles Visitor Bureau",
+        "quote": "| Aetria to Navon      | 08:00 AM         | 08:45 AM         | Daily          |"
+      }
+    ],
+    "id": 41
+  },
+  {
+    "question": "Who was responsible for the company's logistics strategies and introduced quality control measures?",
+    "answer": "Marissa Chen",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Quillon Logistics",
+        "quote": "Marissa Chen, with her background in supply chain management, played a vital role in Quillon\u2019s logistics strategies."
+      }
+    ],
+    "id": 42
+  },
+  {
+    "question": "What significant incident occurred at the Newark depot in June 2018?",
+    "answer": "A devastating fire broke out at the Newark depot, resulting in the loss of over $5 million in merchandise.",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Quillon Logistics",
+        "quote": "On June 10, 2018, a devastating fire broke out at the Newark depot, resulting in the loss of over $5 million in merchandise."
+      }
+    ],
+    "id": 43
+  },
+  {
+    "question": "What is the main goal of the Marrow Valley Public Health Agency?",
+    "answer": "To promote wellness, prevent disease, and protect the community against health threats.",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Marrow Valley Public Health Agency",
+        "quote": "With a mission to promote wellness, prevent disease, and protect the community against health threats, the MVPHA operates a network of hospitals, vaccination programs, and public health policies."
+      }
+    ],
+    "id": 44
+  },
+  {
+    "question": "Who is the current director of the MVPHA?",
+    "answer": "Dr. Eleanor Windsor",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Marrow Valley Public Health Agency",
+        "quote": "The current director, Dr. Eleanor Windsor, has been in her position since 2019, succeeding Dr. Harold Chamberlain."
+      }
+    ],
+    "id": 45
+  },
+  {
+    "question": "How many patients did Marrow Valley General Hospital treat in 2022?",
+    "answer": "Over 120,000 patients",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Marrow Valley Public Health Agency",
+        "quote": "In 2022, it treated over 120,000 patients."
+      }
+    ],
+    "id": 46
+  },
+  {
+    "question": "What percentage of the annual budget is allocated to vaccination programs?",
+    "answer": "12.5%",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Marrow Valley Public Health Agency",
+        "quote": "Vaccination Programs: $75 million (12.5%)"
+      }
+    ],
+    "id": 47
+  },
+  {
+    "question": "What is the primary focus of Tarn Aerospace?",
+    "answer": "The design, manufacturing, and deployment of advanced satellites and launch vehicles.",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Tarn Aerospace",
+        "quote": "Tarn Aerospace, a leader in modern aerospace technology, focuses on the design, manufacturing, and deployment of advanced satellites and launch vehicles."
+      }
+    ],
+    "id": 48
+  },
+  {
+    "question": "When was the Tarn Falcon I launched?",
+    "answer": "December 5, 2015",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Tarn Aerospace",
+        "quote": "Maiden Flight: December 5, 2015"
+      }
+    ],
+    "id": 49
+  },
+  {
+    "question": "How many employees did Tarn Aerospace have in 2023?",
+    "answer": "5,200",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "Tarn Aerospace",
+        "quote": "Employees: 5,200 (2023)"
+      }
+    ],
+    "id": 50
+  },
+  {
+    "question": "What is the focus of the Maplewood Community Library's programs?",
+    "answer": "Community-driven programs, offering workshops in arts and crafts, computer literacy, and English as a second language (ESL).",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Eldergrove Metropolitan Library System",
+        "quote": "Maplewood Community Library focuses on community-driven programs, offering workshops in arts and crafts, computer literacy, and English as a second language (ESL)."
+      }
+    ],
+    "id": 51
+  },
+  {
+    "question": "How many items are in the Eldergrove Metropolitan Library System's collection?",
+    "answer": "Exceeding 1.5 million items.",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Eldergrove Metropolitan Library System",
+        "quote": "As of 2023, the library system serves over 300,000 residents and boasts a collection exceeding 1.5 million items."
+      }
+    ],
+    "id": 52
+  },
+  {
+    "question": "When was the Lifelong Learning Initiative launched?",
+    "answer": "2021",
+    "type": "single",
+    "evidence": [
+      {
+        "doc": "The Eldergrove Metropolitan Library System",
+        "quote": "Launched in 2021, the Lifelong Learning Initiative offers free workshops and classes on various subjects, including technology, literature, and health."
+      }
+    ],
+    "id": 53
+  },
+  {
+    "question": "What are the key innovations introduced by Meridian Robotics and the Halvorsen Basin Water Authority in their respective fields?",
+    "answer": "Meridian Robotics introduced the Meridian Fleet Management System in 2019 and the Meridian Vision System in 2021, while the Halvorsen Basin Water Authority introduced a nanotechnology-based filtration system in 2022.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "Meridian Robotics",
+        "quote": "In 2019, the company launched the **Meridian Fleet Management System (MFMS)**, a software platform that integrates various robotic systems and provides real-time analytics to optimize operation efficiency."
+      },
+      {
+        "doc": "The Halvorsen Basin Water Authority",
+        "quote": "In 2022, the HBWA introduced a pioneering nanotechnology-based filtration system at the Eastbank Water Purification Plant, enhancing pathogen removal and reducing chemical usage by 30%."
+      }
+    ],
+    "id": 54
+  },
+  {
+    "question": "How do Meridian Robotics and the Halvorsen Basin Water Authority contribute to efficiency in their operations?",
+    "answer": "Meridian Robotics increases operational efficiency by up to 40% through its Fleet Management System, while the Halvorsen Basin Water Authority reduces operational costs associated with water treatment and distribution through its hydroelectric power generation.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "Meridian Robotics",
+        "quote": "MFMS has been credited with increasing operational efficiency by up to 40%."
+      },
+      {
+        "doc": "The Halvorsen Basin Water Authority",
+        "quote": "The Authority's strategic energy production aligns with the state\u2019s renewable energy goals established in the 2019 Green Energy Act."
+      }
+    ],
+    "id": 55
+  },
+  {
+    "question": "What are the capacities of the largest dam managed by the Halvorsen Basin Water Authority and the average age of Kestrel Airlines' fleet?",
+    "answer": "The largest dam, Golden Ridge Dam, has a capacity of 1.5 billion gallons, while Kestrel Airlines' fleet has an average age of 6.5 years.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "The Halvorsen Basin Water Authority",
+        "quote": "**Golden Ridge Dam** (completed: 2001): Designed primarily for flood control, this structure has a capacity of 1.5 billion gallons and hosts an annual hydroelectric output of 750 megawatt-hours."
+      },
+      {
+        "doc": "Kestrel Airlines",
+        "quote": "The average age of Kestrel's fleet is 6.5 years, which is significantly younger than the industry average of 11 years."
+      }
+    ],
+    "id": 56
+  },
+  {
+    "question": "How many dams does the Halvorsen Basin Water Authority manage and how many aircraft does Kestrel Airlines operate?",
+    "answer": "The Halvorsen Basin Water Authority manages five major dams, while Kestrel Airlines operates a fleet of 150 aircraft.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "The Halvorsen Basin Water Authority",
+        "quote": "The HBWA oversees a series of five major dams situated along the Halvorsen River, essential for water storage, flood control, and hydroelectric power generation."
+      },
+      {
+        "doc": "Kestrel Airlines",
+        "quote": "As of October 2023, Kestrel Airlines operates a fleet of 150 aircraft, consisting of various models to serve its passenger and cargo operations."
+      }
+    ],
+    "id": 57
+  },
+  {
+    "question": "What are the average ages of the fleets for Kestrel Airlines and Orsino Pharmaceuticals' drug development projects, and how do they reflect the companies' operational strategies?",
+    "answer": "Kestrel Airlines has an average fleet age of 6.5 years, which is significantly younger than the industry average of 11 years, while Orsino Pharmaceuticals does not specify an average age for its drug pipeline but emphasizes its innovative and state-of-the-art capabilities.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "Kestrel Airlines",
+        "quote": "The average age of Kestrel's fleet is 6.5 years, which is significantly younger than the industry average of 11 years."
+      },
+      {
+        "doc": "Orsino Pharmaceuticals",
+        "quote": "Orsino has rapidly established itself as a frontrunner in drug development, thanks to its robust pipeline, state-of-the-art manufacturing capabilities, and a leadership team composed of industry veterans."
+      }
+    ],
+    "id": 58
+  },
+  {
+    "question": "How do Kestrel Airlines and Orsino Pharmaceuticals prioritize safety and regulatory compliance in their operations?",
+    "answer": "Kestrel Airlines adheres rigorously to FAA regulations and has a high score of 97% from the IATA Operational Safety Audit, while Orsino Pharmaceuticals maintains a robust clinical trial framework that adheres strictly to Good Clinical Practice (GCP) and international regulatory standards.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "Kestrel Airlines",
+        "quote": "The airline adheres rigorously to the Federal Aviation Administration (FAA) regulations and is a member of the International Air Transport Association (IATA)."
+      },
+      {
+        "doc": "Orsino Pharmaceuticals",
+        "quote": "The company maintains a robust clinical trial framework that adheres strictly to Good Clinical Practice (GCP) and international regulatory standards."
+      }
+    ],
+    "id": 59
+  },
+  {
+    "question": "How do the fare programs of the Tessaly Municipal Transit System support low-income residents compared to the financial aid programs at Brightwater University?",
+    "answer": "The TMTS offers a Low-Income Fare Program providing a 75% discount on all transit fares, while Brightwater University allocates over $30 million annually to support students from diverse economic backgrounds.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "The Tessaly Municipal Transit System",
+        "quote": "Low-income residents can apply for a reduced fare card, providing a 75% discount on all transit fares."
+      },
+      {
+        "doc": "Brightwater University",
+        "quote": "The university allocates over $30 million annually to support students from diverse economic backgrounds."
+      }
+    ],
+    "id": 60
+  },
+  {
+    "question": "How do the financial aid programs at Brightwater University support students compared to Lumen Grid Energy's outage response protocol?",
+    "answer": "Brightwater University offers various financial aid programs to support students, while Lumen Grid Energy has established an outage response protocol to minimize downtime for its customers.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "Brightwater University",
+        "quote": "BWU is committed to making education accessible through various financial aid programs: - **Brightwater Excellence Scholarship**: A merit-based scholarship awarded to approximately 200 incoming freshmen annually, covering up to 50% of tuition."
+      },
+      {
+        "doc": "Lumen Grid Energy",
+        "quote": "LGE strives for high reliability, but outages do occur. The company's outage response protocol, established in 2019, aims to minimize downtime."
+      }
+    ],
+    "id": 61
+  },
+  {
+    "question": "What are the total visitor statistics for the Varga Archipelago in the fiscal year 2022-2023 compared to the operational reach of Corvane Airways?",
+    "answer": "The Varga Archipelago experienced a total of 2.3 million visitors in the fiscal year 2022-2023, while Corvane Airways operates over 150 routes connecting 75 destinations in North America and Europe.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "The Varga Archipelago Tourism Board",
+        "quote": "In the fiscal year 2022-2023, the Varga Archipelago experienced significant growth in tourist footfall, with total visitors reaching 2.3 million, marking a 15% increase from the previous year."
+      },
+      {
+        "doc": "Corvane Airways",
+        "quote": "Corvane Airways operates over 150 routes, connecting 75 destinations in North America and Europe."
+      }
+    ],
+    "id": 62
+  },
+  {
+    "question": "How do the operational strategies of Corvane Airways and Northgate Robotics differ in terms of customer engagement and service offerings?",
+    "answer": "Corvane Airways focuses on customer loyalty through its tiered rewards program, while Northgate Robotics emphasizes innovation in surgical technology to enhance surgical precision and efficiency.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "Corvane Airways",
+        "quote": "Corvane Rewards, launched in 1999, has over 5 million active members as of 2023. The program offers tiered membership levels: Silver, Gold, and Platinum, each providing various benefits."
+      },
+      {
+        "doc": "Northgate Robotics",
+        "quote": "Northgate Robotics is a pioneering company in the field of surgical robotics, specializing in the development and manufacture of robotic systems designed to enhance surgical precision and efficiency."
+      }
+    ],
+    "id": 63
+  },
+  {
+    "question": "What are the safety and reliability measures implemented by Corvane Airways, and how do they compare to the quality assurance practices in product development at Northgate Robotics?",
+    "answer": "Corvane Airways implements rigorous maintenance protocols and safety audits, while Northgate Robotics focuses on FDA approval and technological advancements for ensuring product quality.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "Corvane Airways",
+        "quote": "The average age of the fleet is approximately 6.5 years, with a rigorous maintenance protocol adhered to, ensuring an on-time performance rate of 91% and an operational reliability rate of 99.5%."
+      },
+      {
+        "doc": "Northgate Robotics",
+        "quote": "In 2015, Northgate Robotics received FDA approval for its second-generation system, the Vantage System 2.5, which integrated augmented reality capabilities, allowing for real-time visualization of internal anatomy."
+      }
+    ],
+    "id": 64
+  },
+  {
+    "question": "What year was Northgate Robotics established compared to the year the Ostrava Coast Water Board was established?",
+    "answer": "Northgate Robotics was established in 2010, whereas the Ostrava Coast Water Board was established in 1963.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "Northgate Robotics",
+        "quote": "Established in 2010, Northgate has quickly ascended to the forefront of the healthcare technology sector, with a notable focus on minimally invasive procedures."
+      },
+      {
+        "doc": "The Ostrava Coast Water Board",
+        "quote": "Established in 1963, OCWB oversees a network of reservoirs, treatment plants, tariffs, drought policies, and a range of environmental initiatives to ensure sustainable water use for the local population."
+      }
+    ],
+    "id": 65
+  },
+  {
+    "question": "What are the projected market entry dates for the leading therapeutic candidates from Valdris Therapeutics compared to the operational timeline of the Ostrava Coast Water Board's reservoirs?",
+    "answer": "The projected market entry dates for Valdris Therapeutics' leading therapeutic candidates range from Q4 2025 to Q3 2027, while the reservoirs managed by the Ostrava Coast Water Board have been operational since 1975 to 2023.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "The Ostrava Coast Water Board",
+        "quote": "These reservoirs collectively hold over **400 million cubic meters** of water and serve as the backbone of the region's water supply."
+      },
+      {
+        "doc": "Valdris Therapeutics",
+        "quote": "Projected Market Entry: Q4 2025"
+      }
+    ],
+    "id": 66
+  },
+  {
+    "question": "What are the projected market entry dates for the drugs in Valdris Therapeutics' pipeline compared to the ridership statistics of the Pellham Regional Rail Authority?",
+    "answer": "Valdris Therapeutics has projected market entry dates for its drugs ranging from Q4 2025 to Q3 2027, while the Pellham Regional Rail Authority reported a total ridership of approximately 9.1 million passengers in 2022, marking a 7.5% increase from the previous year.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "Valdris Therapeutics",
+        "quote": "Projected Market Entry: Q4 2025"
+      },
+      {
+        "doc": "The Pellham Regional Rail Authority",
+        "quote": "In 2022, the PRRA reported a total ridership of approximately 9.1 million passengers across its rail network, marking a 7.5% increase from the previous year."
+      }
+    ],
+    "id": 67
+  },
+  {
+    "question": "What are the economic impacts of tourism on the Ionic Isles compared to the revenue growth of Quillon Logistics since its IPO?",
+    "answer": "The tourism sector accounted for 35% of the local economy in the Ionic Isles, while Quillon Logistics has sustained an average annual growth rate of 12% since its IPO.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "The Ionic Isles Visitor Bureau",
+        "quote": "The tourism sector accounted for **35% of the local economy**, demonstrating the islands' dependence on sustainable visitor engagement."
+      },
+      {
+        "doc": "Quillon Logistics",
+        "quote": "Morris\u2019s financial acumen has allowed Quillon to sustain an average annual growth rate of 12% since its IPO."
+      }
+    ],
+    "id": 68
+  },
+  {
+    "question": "How do the operational strategies of the Ionic Isles Visitor Bureau and Quillon Logistics differ in terms of visitor engagement and logistics management?",
+    "answer": "The Ionic Isles Visitor Bureau focuses on promoting sustainable tourism through visitor statistics and ferry schedules, while Quillon Logistics emphasizes operational efficiency through technology integration and quality control measures.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "The Ionic Isles Visitor Bureau",
+        "quote": "The purpose of this document is to provide an overview of the visitor statistics, ferry schedules, conservation rules, and annual festivals to enhance the experience of tourists and promote sustainable tourism."
+      },
+      {
+        "doc": "Quillon Logistics",
+        "quote": "Quinton\u2019s innovative approach to operational efficiency\u2014centered around technology integration\u2014set the foundation for the company\u2019s growth."
+      }
+    ],
+    "id": 69
+  },
+  {
+    "question": "What are the main focuses of Quillon Logistics and the Marrow Valley Public Health Agency in terms of operational efficiency and public health?",
+    "answer": "Quillon Logistics focuses on operational efficiency through technology integration and sustainability, while MVPHA focuses on preventing disease and promoting wellness through vaccination programs.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "Quillon Logistics",
+        "quote": "Quinton\u2019s innovative approach to operational efficiency\u2014centered around technology integration\u2014set the foundation for the company\u2019s growth."
+      },
+      {
+        "doc": "The Marrow Valley Public Health Agency",
+        "quote": "With a mission to promote wellness, prevent disease, and protect the community against health threats, the MVPHA operates a network of hospitals, vaccination programs, and public health policies."
+      }
+    ],
+    "id": 70
+  },
+  {
+    "question": "What are the annual budgets of the Marrow Valley Public Health Agency's hospitals compared to Tarn Aerospace's annual revenue?",
+    "answer": "The annual budgets of the Marrow Valley Public Health Agency's hospitals total $340 million, while Tarn Aerospace's annual revenue is $2.1 billion.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "The Marrow Valley Public Health Agency",
+        "quote": "Annual budget: $120 million."
+      },
+      {
+        "doc": "Tarn Aerospace",
+        "quote": "Revenue: $2.1 Billion (2022)"
+      }
+    ],
+    "id": 71
+  },
+  {
+    "question": "How do the vaccination rates for children in Marrow Valley compare to Tarn Aerospace's investment in research and development?",
+    "answer": "The vaccination rates for children up to the age of 2 in Marrow Valley stand at 90%, while Tarn Aerospace invests approximately 12% of its annual revenue in R&D.",
+    "type": "multi",
+    "evidence": [
+      {
+        "doc": "The Marrow Valley Public Health Agency",
+        "quote": "As of 2023, vaccination rates for children up to the age of 2 in Marrow Valley stand at 90%, surpassing the national average of 85%."
+      },
+      {
+        "doc": "Tarn Aerospace",
+        "quote": "Tarn Aerospace invests approximately 12% of its annual revenue in R&D, focusing on miniaturization of satellite technology and advanced propulsion systems."
+      }
+    ],
+    "id": 72
+  }
+]
