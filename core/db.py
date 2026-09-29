@@ -1,3 +1,5 @@
+import time
+
 import psycopg
 from pgvector.psycopg import register_vector
 
@@ -31,11 +33,22 @@ CREATE INDEX IF NOT EXISTS chunks_doc_idx ON chunks (document_id);
 """
 
 
-def connect(vectors: bool = True):
-    conn = psycopg.connect(config.DB_URL, autocommit=True)
-    if vectors:
-        register_vector(conn)
-    return conn
+def connect(vectors: bool = True, attempts: int = 3):
+    """Open a connection. The serverless Postgres we develop against occasionally drops a fresh connection
+    ("server closed the connection unexpectedly"), so opening is retried with a short backoff."""
+    for attempt in range(1, attempts + 1):
+        conn = None
+        try:
+            conn = psycopg.connect(config.DB_URL, autocommit=True)
+            if vectors:
+                register_vector(conn)
+            return conn
+        except psycopg.OperationalError:
+            if conn is not None:
+                conn.close()
+            if attempt == attempts:
+                raise
+            time.sleep(0.3 * attempt)
 
 
 def reset():

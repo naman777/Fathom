@@ -192,8 +192,8 @@ Everything is read from `.env` (see `.env.example`). Only the first two are requ
 | `MAX_QUESTION_CHARS` / `MAX_UPLOAD_MB` | `1000` / `10` | input size caps |
 | `CHUNK_TARGET` / `CHUNK_OVERLAP` | `900` / `150` | chunk size in characters (affects documents ingested afterwards) |
 | `CHUNK_HEADERS` | `false` | prefix each new chunk with `[title - description > section]` (one small LLM call per document) |
-| `LEXICAL_MODE` | `or` | `or`, `or_norm`, `websearch` or `trigram` (see Retrieval upgrades) |
-| `NEIGHBOR_EXPAND` | `0` | neighbouring chunks per side handed to the answerer with each hit |
+| `LEXICAL_MODE` | `websearch` | `or`, `or_norm`, `websearch` or `trigram` (see Retrieval upgrades) |
+| `NEIGHBOR_EXPAND` | `1` | neighbouring chunks per side handed to the answerer with each hit (0 = off; about +40-50% tokens per question) |
 | `MAX_FOLLOWUPS` | `1` | follow-up searches the agent may make after reflecting |
 | `MODEL_PRICES` | built-in for `gpt-4.1-mini`, `text-embedding-3-small` | JSON `{"model": [usd_per_1M_input, usd_per_1M_output]}`; add `gpt-6-luna` here to get dollar costs |
 | `PROMPT_HARDENING` | `true` | wrap retrieved passages as untrusted data in every prompt (turn off only for the injection test) |
@@ -356,41 +356,45 @@ is **not** distinguishable from the no-agent pipeline on any metric (all differe
 3.5x the p95 latency. An earlier README claimed a clear agent-loop gain here; that came from single runs and an
 under-provisioned reranker (see below) and does not survive repeated runs.
 
-### Results on a real corpus (11 IETF RFCs, 20 labelled questions, K = 5, 5 runs)
+### Results on a real corpus (11 IETF RFCs, 20 labelled questions, K = 5, 5 runs, shipped defaults)
 
 `python -m eval.real_corpus --ingest`, then `python -m eval.run_eval --golden real_golden_set.json --runs 5 --out results_real_rfc`
 (remove the RFCs afterwards with `python -m eval.real_corpus --remove`). The corpus is RFC 793, 1035, 3986, 5321, 6265, 6455,
 6749, 7233, 7519, 8446 and 9000 (about 2,600 chunks, cleaned of page furniture, indexed alongside the synthetic documents as
 distractors). The 20 questions (15 single-passage, 5 two-part) are in `eval/real_golden_set.json`, built and verified by
 `eval/build_real_golden.py`: each has a verbatim evidence sentence from the RFC text, and questions are phrased differently
-from the source. Full output: [`eval/results/results_real_rfc.md`](eval/results/results_real_rfc.md).
+from the source. Full output: [`eval/results/results_real_rfc.md`](eval/results/results_real_rfc.md). These numbers use the
+shipped defaults: `gpt-6-luna` as reranker, planner and answerer, websearch lexical mode, neighbour expansion on, no headers.
 
-Reranker and planner `gpt-6-luna` (the current default) versus `gpt-4.1-mini` (earlier run, same questions, 20 candidates):
-
-| Stage | Recall@5 | Full-hit@5 (`gpt-6-luna`) | Full-hit@5 (`gpt-4.1-mini`) | MRR (`gpt-6-luna`) |
-|---|---|---|---|---|
-| lexical (Postgres FTS) | 0.42 | 0.35 | 0.35 | 0.24 |
-| dense (pgvector) | 0.53 | 0.45 | 0.45 | 0.53 |
-| hybrid (RRF) | 0.50 | 0.40 | 0.40 | 0.47 |
-| hybrid + rerank | 0.71 ± 0.01 | 0.60 | 0.65 ± 0.04 | 0.77 ± 0.03 |
-| full pipeline + agent loop | 0.78 ± 0.03 | 0.74 ± 0.04 | 0.78 ± 0.03 | 0.71 ± 0.04 |
-
-| Generation (`gpt-6-luna`) | Answer accuracy | Unsupported-claim rate | End-to-end p50 / p95 (ms) |
+| Stage | Recall@5 | Full-hit@5 | MRR |
 |---|---|---|---|
-| no agent | 0.82 ± 0.06 | 0.041 ± 0.017 | 4267 / 6367 |
-| with agent loop | 0.89 ± 0.04 | 0.005 ± 0.010 | 5759 / 17163 |
+| lexical (Postgres FTS) | 0.42 | 0.35 | 0.27 |
+| dense (pgvector) | 0.53 | 0.45 | 0.53 |
+| hybrid (RRF) | 0.50 | 0.40 | 0.47 |
+| hybrid + rerank | 0.71 ± 0.04 | 0.62 ± 0.04 | 0.77 ± 0.04 |
+| full pipeline, no agent* | 0.82 ± 0.04 | 0.72 ± 0.04 | 0.86 ± 0.04 |
+| full pipeline + agent loop* | 0.90 ± 0.03 | 0.85 ± 0.04 | 0.82 ± 0.03 |
 
-(`gpt-4.1-mini` run: accuracy 0.86 / 0.90, end to end p95 4978 / 8505 ms.) Multi-part questions (5), full-hit: with
-`gpt-6-luna` 0.00 without the agent (mini: 0.36 ± 0.09) and **0.72 ± 0.11** with it (mini: 0.72 ± 0.11).
+\*These two rows include neighbour expansion (each hit is widened by the chunk before and after it), so recall and full-hit
+are measured over more text than the K=5 rows above; compare them with the answer-accuracy column, not with the rows above.
 
-Takeaways: absolute quality on real text is much lower than on synthetic text, and the ranking of retrievers differs (lexical
-is the weakest here, the strongest on synthetic text). Reranking and the agent loop both help on real text, and the agent
-loop's gain on multi-part questions is large and outside the noise. `gpt-6-luna` as reranker is no better than
-`gpt-4.1-mini` on this set (0.60 vs 0.65 full-hit, about one sd apart, and worse on multi-part retrieval without the agent)
-and is much slower (retrieval p50 2.8 s vs 1.9 s, agent-loop end-to-end p95 17 s vs 8.5 s), so the earlier synthetic-set
-advantage for `gpt-6-luna` did not replicate. It stays the default only because of cost; if latency matters, set
-`RERANK_MODEL=gpt-4.1-mini` and `PLANNER_MODEL=gpt-4.1-mini`. With 20 questions one question is 5 points of full-hit,
-so treat differences of a few points as noise.
+| Generation | Answer accuracy | Unsupported-claim rate | End-to-end p50 / p95 |
+|---|---|---|---|
+| no agent | 0.92 ± 0.04 | 0.013 ± 0.021 | 4.6 s / 8.1 s |
+| with agent loop | 0.99 ± 0.02 | 0.020 ± 0.021 | 6.0 s / 19.0 s |
+
+Multi-part questions (5), full-hit: 0.16 ± 0.09 without the agent, **0.64 ± 0.09** with it.
+
+Before these defaults (plain OR search, no expansion, same model) the same run gave answer accuracy 0.82 ± 0.06 without the
+agent and 0.89 ± 0.04 with it, and multi-part full-hit 0.72 ± 0.11 with the agent (within noise of 0.64). The
+`gpt-4.1-mini` comparison and the earlier tables are in git history.
+
+Takeaways: absolute retrieval quality on real text is much lower than on synthetic text, and the ranking of retrievers
+differs (lexical is the weakest here, the strongest on synthetic text). Reranking, neighbour expansion and the agent loop
+each help on real text, and the agent loop's gain on multi-part questions is large and outside the noise. `gpt-6-luna` is
+the default because it is the cheapest model available to this project; it is slower than `gpt-4.1-mini` (retrieval p50 about
+3 s versus 1.9 s) and no better on retrieval, so set `RERANK_MODEL=gpt-4.1-mini` and `PLANNER_MODEL=gpt-4.1-mini` if latency
+matters more than cost. With 20 questions one question is 5 points of full-hit, so treat differences of a few points as noise.
 
 ### What the real-corpus run found and fixed
 
@@ -410,6 +414,26 @@ Chunk size was also tried at 20 candidates (`CHUNK_TARGET` / `CHUNK_OVERLAP`, de
 full-hit, **600 chars 0.77 ± 0.03**, 900 chars 0.67 ± 0.06. 600 looks best but the curve is not monotonic and 20 questions
 cannot settle it, and it could not be checked on the synthetic set without re-ingesting those documents, so the default is
 unchanged. Worth re-testing on a larger labelled set. `python -m eval.tune_rerank` reproduces the pool sweep.
+
+### Retrieval upgrades
+
+Four ideas were tried, each measured with repeated runs (raw tables: [`eval/results/upgrades.json`](eval/results/upgrades.json),
+per-experiment outputs in `eval/results/experiments/`; the Results page shows them too). Reproduce with
+`python -m eval.tune_lexical`, `python -m eval.tune_rerank` and the `--expand`, `--followups`, `--types` and `--lexical-mode`
+flags of `eval.run_eval`.
+
+| Idea | Measured effect | Decision |
+|---|---|---|
+| **Neighbour (parent-document) expansion**: hand the answerer each hit plus the chunk before and after | Answer accuracy 0.77 to **0.93** on the headers + websearch index (about 5 sd) and 0.82 to **0.92** on the plain index (about 2 sd), RFC set. Answer-side prompt tokens rise about 2.3x, or roughly 40-50% more tokens per question including rerank | **On by default** (`NEIGHBOR_EXPAND=1`); set 0 to save tokens |
+| **`websearch_to_tsquery` instead of raw OR** (with an OR top-up so long questions still match) | On the synthetic set lexical MRR 0.79 to 0.83, recall unchanged. On the plain RFC index hybrid is unchanged (0.50/0.40/0.47). Combined with headers on RFCs, hybrid before rerank 0.45 to 0.55 full-hit, after rerank MRR 0.79 to 0.84 | **On by default**; never worse in any run, but on its own it is roughly neutral |
+| **Contextual chunk headers** (`[title - description > section]` on every chunk, one small LLM call per document) | Alone, after rerank: full-hit 0.62 to 0.63 (noise), MRR 0.74 to 0.79. With websearch: full-hit 0.67, MRR 0.84 | **Off by default** (`CHUNK_HEADERS=true` to enable): the best retrieval numbers, but end-to-end accuracy was the same once expansion was on (0.93 vs 0.92), it costs an ingest-time call, and it was tested on one corpus |
+| **More follow-up searches** (1 vs 3 reflect-and-search hops) | Real multi-part questions: full-hit 0.73 to **0.53**, latency 18.8 s to 40.3 s (p95 75.6 s), +39% tokens. Synthetic: no gain (0.82 vs 0.76) | **Stay at 1** (`MAX_FOLLOWUPS`); more hops made things worse, most likely because each hop adds passages that crowd out better ones under the 8-passage cap (a hypothesis, not tested) |
+
+Other results: trigram matching (`pg_trgm`) is poor on its own for long natural-language questions (lexical recall 0.25 on the
+synthetic set) and was not tried on the RFC set; length-normalised OR ranking gave no gain. Caveats: the headers and websearch
+numbers come from one corpus of 11 documents and 20 questions; full-hit for expanded rows is measured over the expanded text,
+so answer accuracy is the fair comparison; and the synthetic tables above were measured before the websearch and expansion
+defaults. Enabling headers only affects documents ingested afterwards.
 
 ### Keeping evaluation cheap
 

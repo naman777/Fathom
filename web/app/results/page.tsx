@@ -48,7 +48,7 @@ export default function ResultsPage() {
   const real = data?.real;
   const agent = real?.["full pipeline + agent loop"];
   const noAgent = real?.["full pipeline, no agent"];
-  const syn = data?.synthetic?.["full pipeline + agent loop"];
+  const rerank = real?.["hybrid + rerank"];
 
   return (
     <PageShell
@@ -59,9 +59,9 @@ export default function ResultsPage() {
 
       {data && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Headline label="Real documents · full pipeline" value={f2(agent?.summary["full_hit@k"].mean)} sub="passages needed for the answer found in the top 5" />
-          <Headline label="Synthetic corpus · full pipeline" value={f2(syn?.summary["full_hit@k"].mean)} sub="the easy set — real text scores lower" />
-          <Headline label="Multi-part questions, real" value={`${f2(noAgent?.by_type.multi?.["full_hit@k"].mean)} → ${f2(agent?.by_type.multi?.["full_hit@k"].mean)}`} sub="without → with the agent loop" />
+          <Headline label="Real documents · answer accuracy" value={f2(agent?.summary["answer_accuracy"]?.mean)} sub={`with the agent loop (${f2(noAgent?.summary["answer_accuracy"]?.mean)} without)`} />
+          <Headline label="Real documents · retrieval" value={f2(rerank?.summary["full_hit@k"]?.mean)} sub="full-hit@5 after reranking: every needed passage in the top 5" />
+          <Headline label="Multi-part questions, real" value={`${f2(noAgent?.by_type.multi?.["full_hit@k"].mean)} → ${f2(agent?.by_type.multi?.["full_hit@k"].mean)}`} sub="full-hit without → with the agent loop" />
           <Headline
             label="Average cost per question"
             value={stats?.cost_usd_avg != null ? fmtUsd(stats.cost_usd_avg) : "not set"}
@@ -78,11 +78,11 @@ export default function ResultsPage() {
             </button>
           ))}
         </div>
-        <p className="mb-3 text-[13px] text-muted">{DATASETS[ds].sub}</p>
+        <p className="mb-3 text-[13px] text-muted">{DATASETS[ds].sub}{ds === "synthetic" ? " · measured before the websearch and neighbour-expansion defaults" : " · shipped defaults"}</p>
         <Card className="space-y-2.5">
           {stages.length === 0 && <div className="text-sm text-muted">{data ? "No results saved for this dataset." : "Loading…"}</div>}
           {stages.map(([name, s]) => (
-            <Bar key={name} label={name} stat={s.summary["full_hit@k"]} runs={s.runs} />
+            <Bar key={name} label={ds === "real" && name.startsWith("full pipeline") ? `${name} *` : name} stat={s.summary["full_hit@k"]} runs={s.runs} />
           ))}
         </Card>
         <Table
@@ -92,7 +92,7 @@ export default function ResultsPage() {
         />
         {ds === "real" && (
           <p className="mt-3 max-w-2xl text-[13px] leading-relaxed text-muted">
-            Lexical search is the strongest single retriever on the synthetic set but the weakest on real text, and absolute quality is much lower on real documents. That gap is why the synthetic numbers alone would have been misleading.
+            * These rows include neighbour expansion (each hit is widened by the chunk before and after it), so they are measured over more text than the rows above them; compare them by answer accuracy below. Lexical search is the strongest single retriever on the synthetic set but the weakest on real text, and absolute quality is much lower on real documents. That gap is why the synthetic numbers alone would have been misleading.
           </p>
         )}
       </Section>
