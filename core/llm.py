@@ -1,4 +1,6 @@
 import json
+import threading
+from collections import defaultdict
 from functools import lru_cache
 
 from openai import OpenAI
@@ -6,6 +8,25 @@ from openai import OpenAI
 from core import config
 
 _client = None
+
+# Token accounting for cost visibility: {model: [prompt_tokens, completion_tokens, calls]} (process-wide, thread-safe).
+USAGE: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0])
+_usage_lock = threading.Lock()
+
+
+def _record(model: str, usage) -> None:
+    if usage is None:
+        return
+    with _usage_lock:
+        u = USAGE[model]
+        u[0] += getattr(usage, "prompt_tokens", 0) or 0
+        u[1] += getattr(usage, "completion_tokens", 0) or 0
+        u[2] += 1
+
+
+def usage_snapshot() -> dict[str, list[int]]:
+    with _usage_lock:
+        return {m: list(v) for m, v in USAGE.items()}
 
 
 def client() -> OpenAI:
@@ -20,6 +41,7 @@ def embed(texts: list[str]) -> list[list[float]]:
     for i in range(0, len(texts), 96):
         batch = [t.replace("\n", " ")[:8000] for t in texts[i:i + 96]]
         r = client().embeddings.create(model=config.EMBED_MODEL, input=batch)
+        _record(config.EMBED_MODEL, r.usage)
         out.extend(d.embedding for d in r.data)
     return out
 
@@ -51,13 +73,16 @@ def chat(messages, json_mode=False, temperature=None, max_tokens=1200, model=Non
     model = model or config.CHAT_MODEL
     kw = {"response_format": {"type": "json_object"}} if json_mode else {}
     r = client().chat.completions.create(model=model, messages=messages, **_params(model, max_tokens), **kw)
+    _record(model, r.usage)
     return r.choices[0].message.content or ""
 
 
 def chat_stream(messages, temperature=None, max_tokens=1500, model=None):
     model = model or config.CHAT_MODEL
-    s = client().chat.completions.create(model=model, messages=messages, stream=True, **_params(model, max_tokens))
+    s = client().chat.completions.create(model=model, messages=messages, stream=True,
+                                         stream_options={"include_usage": True}, **_params(model, max_tokens))
     for ev in s:
+        _record(model, getattr(ev, "usage", None))
         if ev.choices and ev.choices[0].delta.content:
             yield ev.choices[0].delta.content
 

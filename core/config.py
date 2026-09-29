@@ -26,6 +26,8 @@ CHAT_MODEL = os.environ.get("CHAT_MODEL", "gpt-6-luna")
 # Cheaper/faster models for the small structured calls (default to CHAT_MODEL)
 RERANK_MODEL = os.environ.get("RERANK_MODEL", "gpt-4.1-mini")
 PLANNER_MODEL = os.environ.get("PLANNER_MODEL", "gpt-4.1-mini")
+# Eval-only: model that grades answers (empty = CHAT_MODEL)
+JUDGE_MODEL = os.environ.get("JUDGE_MODEL", "")
 # Reranker backend: "local" (ONNX cross-encoder, fast, no API cost) or "llm"
 RERANKER = os.environ.get("RERANKER", "llm").lower()
 LOCAL_RERANK_MODEL = os.environ.get("LOCAL_RERANK_MODEL", "Xenova/ms-marco-MiniLM-L-12-v2")
