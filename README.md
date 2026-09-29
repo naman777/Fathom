@@ -30,8 +30,19 @@ cd web && npm install && npm run dev   # http://localhost:3000
 Or `docker compose up` (local pgvector DB; needs `OPENAI_API_KEY` in the environment).
 Search from the CLI: `python -m retrieval.search "your question" --rerank`.
 
-Models: `gpt-6-luna` with `reasoning_effort=low` (generation, planning, reranking, judging) and `text-embedding-3-small`
-(override with `CHAT_MODEL` / `REASONING_EFFORT` / `EMBED_MODEL`; the gpt-6 models reject `max_tokens` and custom temperature). The reranker is an LLM listwise reranker, not a BGE cross-encoder.
+Models (all overridable in `.env`, see `.env.example`):
+
+| Task | Default | Variable |
+|---|---|---|
+| Answers, judging | `gpt-6-luna` (`reasoning_effort=low`) | `CHAT_MODEL`, `REASONING_EFFORT` |
+| Reranking | `gpt-4.1-mini` | `RERANK_MODEL` |
+| Query planning / reflection | `gpt-4.1-mini` | `PLANNER_MODEL` |
+| Embeddings | `text-embedding-3-small` | `EMBED_MODEL` |
+
+The gpt-5/6 families reject `max_tokens` and custom temperature; `core/llm.py` picks the right parameters per model family.
+`RERANKER=local` switches to an ONNX cross-encoder (`pip install fastembed`, model via `LOCAL_RERANK_MODEL`) that needs no API call.
+
+Tests: `python -m pytest -q` (19 tests: rate limiter, input caps, admin auth, CORS, chunking, RRF, scorer; none call OpenAI).
 
 ## Rate limiting and cost protection
 
@@ -46,6 +57,8 @@ Per-IP sliding-window limits on the paid endpoints, configured in `.env` (`0` di
 | `RATE_LIMIT_GLOBAL_PER_MINUTE` | `120` | any `/api/*` request per IP |
 | `MAX_QUESTION_CHARS` / `MAX_UPLOAD_MB` | `1000` / `10` | input size caps |
 | `TRUST_PROXY` | `false` | read the client IP from `X-Forwarded-For` (only behind a proxy you control) |
+| `CORS_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | allowed browser origins (`*` = any, dev only) |
+| `ADMIN_TOKEN` | empty | if set, upload/delete require header `X-Admin-Token` (the UI prompts for it); chat stays public |
 
 Exceeded limits return `429` with `Retry-After`; the UI shows a friendly message. Counters are in-memory and
 per process, so multiple workers/instances each keep their own (use Redis for a shared store). Behind a proxy without
@@ -54,36 +67,61 @@ also set a monthly budget cap in the OpenAI dashboard.
 
 ## Evaluation
 
-`python -m eval.run_eval --k 3` — 72 questions over 20 fictional documents (paired domains, so similar documents act as distractors), 19 of them multi-hop. Evidence is a verbatim quote; a chunk counts as a
-hit if it contains the quote. Full results: [`eval/results/results.md`](eval/results/results.md).
+`python -m eval.run_eval --k 3` runs 72 questions over 20 fictional documents (paired domains, so similar documents act
+as distractors), 19 of them multi-hop. Evidence is a verbatim quote; a chunk counts as a hit if it contains the quote.
+Full results: [`eval/results/results.md`](eval/results/results.md).
 
 | Stage | Recall@3 | Full-hit@3 | MRR | Retr. p50 / p95 ms |
 |---|---|---|---|---|
-| lexical (Postgres FTS) | 0.83 | 0.75 | 0.77 | 188 / 213 |
-| dense (pgvector) | 0.78 | 0.71 | 0.74 | 830 / 1101 |
-| hybrid (RRF) | 0.85 | 0.78 | 0.81 | 515 / 642 |
-| hybrid + rerank | 0.94 | 0.90 | 0.92 | 2286 / 3754 |
-| full pipeline + agent loop* | 0.94 | 0.89 | 0.88 | 2319 / 13490 |
+| lexical (Postgres FTS) | 0.83 | 0.75 | 0.77 | 168 / 198 |
+| dense (pgvector) | 0.78 | 0.71 | 0.74 | 770 / 1116 |
+| hybrid (RRF) | 0.85 | 0.78 | 0.81 | 437 / 671 |
+| hybrid + rerank (`gpt-4.1-mini`) | 0.91 | 0.86 | 0.87 | 1343 / 1670 |
+| full pipeline + agent loop* | 0.94 | 0.90 | 0.86 | 1405 / 7744 |
 
-Multi-hop questions only (Full-hit): hybrid 0.21 -> hybrid + rerank **0.63**; the agent loop adds nothing on top (0.58).
-Generation (LLM-judged): answer accuracy 0.88 with and without the agent; unsupported-claim rate 0.010 / 0.013.
-End-to-end p50 / p95: 3.2 s / 5.0 s (no agent), 3.5 s / 15.4 s (agent). First token p50 about 3.0-3.2 s.
+| Generation | Answer accuracy | Unsupported-claim rate | First token p50 / p95 ms | End-to-end p50 / p95 ms |
+|---|---|---|---|---|
+| no agent | 0.83 | 0.026 | 2274 / 3062 | 2544 / 3731 |
+| with agent loop | 0.92 | 0.014 | 2258 / 8631 | 2517 / 9496 |
 
-Model comparison: an earlier run on `gpt-4o-mini` (kept in `eval/results/results_gpt-4o-mini.md`) showed reranking
-with no lift (Full-hit 0.78 -> 0.79) and the agent loop helping multi-hop (0.21 -> 0.42). With `gpt-6-luna` the
-reranker itself does the work and the agent loop is redundant, at much higher tail latency. Single runs of 72 questions.
+Multi-hop questions only (Full-hit@3): hybrid 0.21, hybrid + rerank 0.47, agent loop **0.63**.
+
+### Reranker comparison (full-hit@3, 72 questions, sequential; `python -m eval.bench_rerank`)
+
+| Reranker | Full-hit@3 | MRR | Latency p50 |
+|---|---|---|---|
+| none (hybrid RRF) | 0.78 | 0.81 | ~0.4 s |
+| local MiniLM-L6 cross-encoder (10 cand.) | 0.79 | 0.85 | 0.58 s |
+| local BGE-reranker-base (10 cand.) | 0.81 | 0.82 | 2.0 s |
+| LLM `gpt-4.1-nano` | 0.78 | 0.81 | ~1.8 s* |
+| **LLM `gpt-4.1-mini` (default)** | 0.85 | 0.89 | ~1.5 s* |
+| LLM `gpt-6-luna` | 0.86 | 0.88 | ~2.2 s* |
+
+*measured with 4 concurrent queries, so somewhat inflated. The local rerankers are fast but barely beat no reranking on
+this data; the LLM reranker is the only one giving a real lift, at about +0.9 s.
+
+### Answer-model comparison (with agent loop)
+`gpt-6-luna`: accuracy 0.92, unsupported-claim rate 1.4%. `gpt-4.1-mini`: accuracy 0.96, unsupported 3.2%, first token
+only ~0.2 s faster (retrieval dominates). `gpt-6-luna` is kept as the default because groundedness matters most for RAG.
+Earlier runs with every stage on `gpt-6-luna` or `gpt-4o-mini` are kept in `eval/results/` for reference.
 
 Honest caveats:
 - *Agent rows retrieve up to 8 chunks (merged sub-queries) and are scored over all of them, so they are not strictly
   K=3-comparable to the retrieval-only rows.
-- Latency targets are not met: rerank adds about 1.7 s (target: retrieval + rerank under 400 ms), first token is about
-  3 s (target 1.5 s), and multi-part questions reach p95 of 13-15 s. The DB is remote serverless Postgres and the eval
-  runs 4 queries concurrently, which inflates latency.
-- Golden questions and corpus are LLM-generated and the judge is the same model family as the generator. Treat numbers
-  as relative comparisons between stages, not absolute quality.
+- Latency targets are still not met: hybrid + rerank is about 1.3 s (target 400 ms), first token about 2.3 s (target
+  1.5 s), and multi-part questions with the agent reach p95 of about 8-10 s. The DB is remote serverless Postgres and the
+  eval runs 4 queries concurrently, which inflates latency.
+- Golden questions and corpus are LLM-generated, and the judge is the same model family as the generator. Treat numbers
+  as relative comparisons between stages. Single runs of 72 questions: differences of a few points are within noise
+  (the same reranker config scored 0.86-0.90 across runs).
 
 ## Known gaps / next steps
-- Swap the LLM reranker for a local BGE cross-encoder to cut latency.
-- No auth or multi-tenancy; upload/delete endpoints are unauthenticated (delete is not rate-limited beyond the global cap). CORS is `*` — restrict before deploying.
-- Docker Compose files were written but not run in this environment (Docker Desktop was unavailable).
-- No conversation persistence (history lives in the browser tab).
+- Latency targets (see caveats). Ideas: a stronger local reranker on GPU, co-locating the DB with the API, streaming the
+  first tokens before reranking finishes.
+- Rate-limit counters are in-memory and per process; use a shared store (Redis) if you run several instances.
+- Auth is a single shared `ADMIN_TOKEN` for document changes; there are no user accounts or per-user documents.
+- Chat history is stored only in the browser (localStorage), not on the server.
+- Docker Compose validates (`docker compose config`) but the images were never built or run: the Docker engine would not
+  start on the development machine. Treat it as untested.
+- Not deployed. No public demo link yet (needs a hosting account: Fly.io / Render for the API, Vercel for `web/`).
+- Evaluation uses a synthetic corpus; a real-world corpus would be a better test.
