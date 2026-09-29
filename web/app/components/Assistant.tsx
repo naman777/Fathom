@@ -6,7 +6,7 @@ import remarkGfm from "remark-gfm";
 import { Alert, Branch, Check, Chevron, Copy, Eye, Search, Sparkle } from "./icons";
 import type { Msg, Source, Trace } from "./types";
 
-export default function Assistant({ m, onCite }: { m: Msg; onCite: (s: Source) => void }) {
+export default function Assistant({ m, onCite, onOpenSources }: { m: Msg; onCite: (s: Source) => void; onOpenSources: () => void }) {
   const [copied, setCopied] = useState(false);
   const sources = m.sources || [];
 
@@ -61,26 +61,7 @@ export default function Assistant({ m, onCite }: { m: Msg; onCite: (s: Source) =
           )
         )}
 
-        {sources.length > 0 && !m.streaming && !m.error && (
-          <div>
-            <div className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted">Sources</div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {sources.map((s) => (
-                <button
-                  key={s.n}
-                  onClick={() => onCite(s)}
-                  className="group rounded-xl border border-border bg-surface p-3 text-left transition hover:border-accent/50 hover:bg-surface-2"
-                >
-                  <div className="mb-1 flex items-center gap-2">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-md bg-accent-soft text-[11px] font-semibold text-accent">{s.n}</span>
-                    <span className="truncate text-xs font-medium text-fg">{s.title}</span>
-                  </div>
-                  <p className="line-clamp-2 text-xs leading-relaxed text-muted">{s.content.replace(/[#*_>`]/g, "").trim()}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        {sources.length > 0 && !m.streaming && !m.error && <SourcesBar sources={sources} content={m.content} onOpen={onOpenSources} onCite={onCite} />}
 
         {!m.streaming && !m.error && m.content && (
           <div className="flex items-center gap-3 text-[11px] text-muted">
@@ -174,4 +155,50 @@ function Step({ t }: { t: Trace }) {
   if (t.type === "reflect")
     return row(<Sparkle width={12} height={12} />, t.sufficient ? "Evidence is sufficient" : "Evidence incomplete — following up", t.sufficient ? null : `Missing: ${t.missing}`);
   return null;
+}
+
+function SourcesBar({ sources, content, onOpen, onCite }: { sources: Source[]; content: string; onOpen: () => void; onCite: (s: Source) => void }) {
+  const citedN = new Set((content.match(/\[(\d+)\]/g) || []).map((x) => Number(x.slice(1, -1))));
+  const docs = new Map<string, Source[]>();
+  for (const s of sources) docs.set(s.title, [...(docs.get(s.title) || []), s]);
+  return (
+    <div className="rounded-xl border border-border bg-surface">
+      <button onClick={onOpen} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-surface-2">
+        <span className="flex -space-x-1.5">
+          {sources.slice(0, 4).map((s) => (
+            <span key={s.n} className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface bg-accent-soft text-[10px] font-semibold text-accent">
+              {s.n}
+            </span>
+          ))}
+          {sources.length > 4 && (
+            <span className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface bg-surface-3 text-[10px] text-muted">+{sources.length - 4}</span>
+          )}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-xs font-medium text-fg">
+            {sources.length} passage{sources.length === 1 ? "" : "s"} from {docs.size} document{docs.size === 1 ? "" : "s"}
+          </span>
+          <span className="block truncate text-[11px] text-muted">{Array.from(docs.keys()).join(" · ")}</span>
+        </span>
+        <span className="flex items-center gap-1 text-[11px] font-medium text-accent">
+          View <Chevron width={13} height={13} />
+        </span>
+      </button>
+      <div className="flex flex-wrap gap-1.5 border-t border-border px-3 py-2">
+        {sources.map((s) => (
+          <button
+            key={s.n}
+            onClick={() => onCite(s)}
+            title={s.content.slice(0, 160)}
+            className={`flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition hover:border-accent/60 hover:text-fg ${
+              citedN.has(s.n) ? "border-accent/40 bg-accent-soft text-accent" : "border-border text-muted"
+            }`}
+          >
+            <span className="font-semibold">{s.n}</span>
+            <span className="truncate">passage {s.position + 1}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }

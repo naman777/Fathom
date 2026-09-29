@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Assistant from "./components/Assistant";
 import { Check, Close, Download, File, Logo, Menu, Moon, Plus, Send, Sparkle, Stop, Sun, Trash, Upload } from "./components/icons";
-import type { Conv, Doc, Msg, Source } from "./components/types";
+import SourcesPanel, { type PanelState } from "./components/SourcesPanel";
+import type { Conv, Doc, Msg } from "./components/types";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -28,7 +29,7 @@ export default function Home() {
   const [docsLoaded, setDocsLoaded] = useState(false);
   const [agent, setAgent] = useState(true);
   const [rerank, setRerank] = useState(true);
-  const [active, setActive] = useState<Source | null>(null);
+  const [panel, setPanel] = useState<PanelState | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [dark, setDark] = useState(true);
   const [sidebar, setSidebar] = useState(false);
@@ -504,7 +505,12 @@ export default function Home() {
                   </div>
                 </div>
               ) : (
-                <Assistant key={i} m={m} onCite={setActive} />
+                <Assistant
+                  key={i}
+                  m={m}
+                  onCite={(s) => setPanel({ sources: m.sources || [], cited: citedOf(m), focus: s.n })}
+                  onOpenSources={() => setPanel({ sources: m.sources || [], cited: citedOf(m) })}
+                />
               )
             )}
           </div>
@@ -554,30 +560,24 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Source drawer */}
-      {active && (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setActive(null)} />
-          <aside className="fade-up fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-border bg-surface shadow-[var(--shadow)]">
-            <div className="flex items-start justify-between gap-3 border-b border-border p-4">
-              <div className="min-w-0">
-                <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-muted">Source [{active.n}]</div>
-                <div className="truncate text-sm font-semibold">{active.title}</div>
-                <div className="text-xs text-muted">Chunk {active.position}</div>
-              </div>
-              <button onClick={() => setActive(null)} className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-fg" aria-label="Close">
-                <Close />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4">
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-fg-2">{active.content}</p>
-            </div>
-          </aside>
-        </>
+      {panel && (
+        <SourcesPanel
+          panel={panel}
+          onClose={() => setPanel(null)}
+          canDownload={(t) => !!docs.find((d) => d.title === t && d.stored)}
+          onDownload={(t) => {
+            const d = docs.find((x) => x.title === t);
+            if (d) downloadDoc(d.id);
+          }}
+        />
       )}
+
     </div>
   );
 }
+
+const citedOf = (m: Msg) =>
+  Array.from(new Set((m.content.match(/\[(\d+)\]/g) || []).map((x) => Number(x.slice(1, -1))))).filter((n) => (m.sources || []).some((s) => s.n === n));
 
 function Toggle({ label, hint, on, set }: { label: string; hint: string; on: boolean; set: (v: boolean) => void }) {
   return (
