@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS chunks (
 );
 
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS s3_key TEXT;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS flags JSONB;  -- ingest-time prompt-injection scan (ingest/safety.py)
 
 CREATE INDEX IF NOT EXISTS chunks_tsv_idx ON chunks USING gin (tsv);
 CREATE INDEX IF NOT EXISTS chunks_emb_idx ON chunks USING hnsw (embedding vector_cosine_ops);

@@ -1,7 +1,10 @@
 import sys
 from pathlib import Path
 
+import json
+
 from core import db, llm
+from ingest import safety
 from ingest.chunking import split_text
 
 
@@ -14,6 +17,7 @@ def read_file(path: Path) -> str:
 
 def ingest_text(title: str, text: str, source: str | None = None, conn=None, s3_key: str | None = None) -> dict:
     chunks = split_text(text)
+    flags = safety.scan(text)
     if not chunks:
         return {"title": title, "chunks": 0}
     vecs = llm.embed(chunks)
@@ -21,13 +25,13 @@ def ingest_text(title: str, text: str, source: str | None = None, conn=None, s3_
     conn = conn or db.connect()
     try:
         doc_id = conn.execute(
-            "INSERT INTO documents(title, source, s3_key) VALUES (%s,%s,%s) RETURNING id",
-            (title, source, s3_key)).fetchone()[0]
+            "INSERT INTO documents(title, source, s3_key, flags) VALUES (%s,%s,%s,%s) RETURNING id",
+            (title, source, s3_key, json.dumps(flags) if flags else None)).fetchone()[0]
         with conn.cursor() as cur:
             cur.executemany(
                 "INSERT INTO chunks(document_id, position, content, embedding) VALUES (%s,%s,%s,%s)",
                 [(doc_id, i, c, v) for i, (c, v) in enumerate(zip(chunks, vecs))])
-        return {"document_id": doc_id, "title": title, "chunks": len(chunks)}
+        return {"document_id": doc_id, "title": title, "chunks": len(chunks), "flags": flags}
     finally:
         if own:
             conn.close()

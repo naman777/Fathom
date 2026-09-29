@@ -1,3 +1,4 @@
+import json
 import os
 import re
 from pathlib import Path
@@ -26,6 +27,9 @@ CHAT_MODEL = os.environ.get("CHAT_MODEL", "gpt-6-luna")
 # Cheaper/faster models for the small structured calls (default to CHAT_MODEL)
 RERANK_MODEL = os.environ.get("RERANK_MODEL", "gpt-6-luna")
 PLANNER_MODEL = os.environ.get("PLANNER_MODEL", "gpt-6-luna")
+# Wrap retrieved passages as untrusted data in every prompt (see README, prompt-injection threat model). Turn off only to
+# measure the difference in eval/injection_test.py.
+PROMPT_HARDENING = os.environ.get("PROMPT_HARDENING", "true").lower() != "false"
 # Eval-only: model that grades answers (empty = CHAT_MODEL)
 JUDGE_MODEL = os.environ.get("JUDGE_MODEL", "")
 # Reranker backend: "local" (ONNX cross-encoder, fast, no API cost) or "llm"
@@ -35,6 +39,13 @@ LOCAL_RERANK_CANDIDATES = int(os.environ.get("LOCAL_RERANK_CANDIDATES", "20"))
 REASONING_EFFORT = os.environ.get("REASONING_EFFORT", "low")
 EMBED_MODEL = os.environ.get("EMBED_MODEL", "text-embedding-3-small")
 EMBED_DIM = 1536
+# USD per 1M tokens as [input, output]. Models missing here are reported as tokens only (cost "unpriced").
+# Override or extend with MODEL_PRICES='{"gpt-6-luna": [IN, OUT]}' in .env.
+MODEL_PRICES = {"gpt-4.1-mini": [0.40, 1.60], "text-embedding-3-small": [0.02, 0.0]}
+try:
+    MODEL_PRICES.update({k: [float(v[0]), float(v[1])] for k, v in json.loads(os.environ.get("MODEL_PRICES", "{}")).items()})
+except (ValueError, TypeError, IndexError, AttributeError):
+    pass  # a malformed override must not stop the app; those models simply stay unpriced
 # Chunking (characters). Changing these only affects documents ingested afterwards.
 CHUNK_TARGET = int(os.environ.get("CHUNK_TARGET", "900"))
 CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", "150"))

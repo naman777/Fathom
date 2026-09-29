@@ -9,11 +9,12 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from agent import loop
-from core import config, db, storage
+from core import config, db, obs, storage
 from core.ratelimit import rate_limit_middleware
 from generation import prompt
 from ingest.pipeline import ingest_text, read_file
 
+obs.setup_logging()
 app = FastAPI(title="Fathom")
 app.middleware("http")(rate_limit_middleware)
 app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS, allow_methods=["*"], allow_headers=["*"])
@@ -40,10 +41,10 @@ def health():
 @app.get("/api/documents")
 def documents():
     with db.connect() as c:
-        rows = c.execute("""SELECT d.id, d.title, d.source, count(c.id), d.s3_key IS NOT NULL
+        rows = c.execute("""SELECT d.id, d.title, d.source, count(c.id), d.s3_key IS NOT NULL, d.flags
                             FROM documents d LEFT JOIN chunks c ON c.document_id = d.id
                             GROUP BY d.id ORDER BY d.id DESC""").fetchall()
-    return [{"id": r[0], "title": r[1], "source": r[2], "chunks": r[3], "stored": r[4]} for r in rows]
+    return [{"id": r[0], "title": r[1], "source": r[2], "chunks": r[3], "stored": r[4], "flags": r[5] or {}} for r in rows]
 
 
 @app.delete("/api/documents/{doc_id}")
@@ -109,10 +110,13 @@ def chat(req: ChatReq):
         raise HTTPException(413, f"Question too long (max {config.MAX_QUESTION_CHARS} characters)")
     req.history = [{"role": m.get("role"), "content": str(m.get("content", ""))[:2000]}
                    for m in req.history[-6:]]
+    trace = obs.Trace(question_chars=len(req.question), agent=req.agent, rerank=req.rerank)
+
     def gen():
-        t0 = time.time()
         conn = db.connect()
+        finished = False
         try:
+            yield sse("meta", {"trace_id": trace.trace_id})
             sources = []
             for ev in loop.run(conn, req.question, req.history, rerank=req.rerank, use_agent=req.agent):
                 if ev["type"] == "sources":
@@ -121,18 +125,51 @@ def chat(req: ChatReq):
                         {"n": i, "id": c["id"], "title": c["title"], "position": c["position"],
                          "content": c["content"]} for i, c in enumerate(sources, 1)]}
                 yield sse("trace", ev)
-            yield sse("retrieval_done", {"ms": int((time.time() - t0) * 1000)})
-            first = True
+            yield sse("retrieval_done", {"ms": trace.elapsed_ms()})
+            first, t_answer = True, time.perf_counter()
             for tok in prompt.answer_stream(req.question, sources, req.history):
                 if first:
-                    yield sse("first_token", {"ms": int((time.time() - t0) * 1000)})
+                    trace.first_token_ms = trace.elapsed_ms()
+                    yield sse("first_token", {"ms": trace.first_token_ms})
                     first = False
                 yield sse("token", tok)
-            yield sse("done", {"ms": int((time.time() - t0) * 1000)})
+            trace.add_stage("answer", (time.perf_counter() - t_answer) * 1000)
+            finished = True
+            yield sse("done", {"ms": trace.elapsed_ms(), **trace.finish("ok", n_sources=len(sources))})
         except Exception as e:  # surface errors to the UI instead of a dead stream
+            finished = True
+            trace.finish("error", error=type(e).__name__)
             yield sse("error", str(e))
         finally:
+            if not finished:  # client went away mid-stream
+                trace.finish("aborted")
             conn.close()
 
-    return StreamingResponse(gen(), media_type="text/event-stream",
-                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return StreamingResponse(obs.traced(gen(), trace), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no",
+                                      "X-Trace-Id": trace.trace_id})
+
+
+@app.get("/api/stats")
+def stats():
+    """Aggregate of the most recent requests: latency, tokens, cost and where the time went."""
+    return {**obs.stats(), "priced_models": sorted(config.MODEL_PRICES), "models": {
+        "answer": config.CHAT_MODEL, "rerank": config.RERANK_MODEL, "planner": config.PLANNER_MODEL,
+        "embed": config.EMBED_MODEL}}
+
+
+RESULT_FILES = {"synthetic": "results.json", "real": "results_real_rfc.json"}
+
+
+@app.get("/api/eval-results")
+def eval_results():
+    """Saved evaluation summaries (per-question rows are dropped) for the Results page."""
+    out = {}
+    for key, name in RESULT_FILES.items():
+        path = config.ROOT / "eval" / "results" / name
+        if not path.exists():
+            continue
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        out[key] = {stage: {"runs": len(r.get("runs", [])), "summary": r["summary"], "by_type": r.get("by_type", {}),
+                            "usage": r.get("usage", {})} for stage, r in raw.items()}
+    return out
