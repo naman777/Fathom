@@ -47,7 +47,7 @@ and honest caveats.
 - **Streaming chat UI** (Next.js): live reasoning trace, markdown answers, clickable citation chips, source cards and a
   source drawer, light/dark theme, saved chat history, drag-and-drop upload, stop button, mobile layout.
 - **Cost and abuse protection**: per-IP rate limits (per minute, per day, uploads, deletes), input-size caps, configurable
-  CORS, optional admin token for document changes. All tunable from `.env`.
+  CORS. All tunable from `.env`.
 - **Evaluation harness**: 72 golden questions (19 multi-hop) scored for Recall@K, Full-hit@K, Precision@K, MRR, answer
   accuracy, unsupported-claim rate and latency (p50/p95), stage by stage.
 - **One-command launcher** (`python run.py`) and a 19-test pytest suite.
@@ -201,11 +201,11 @@ Everything is read from `.env` (see `.env.example`). Only the first two are requ
 | `GET /api/health` | liveness + DB check |
 | `GET /api/documents` | list documents with chunk counts |
 | `POST /api/documents` | upload a `.txt`/`.md`/`.pdf` (multipart field `file`); stored in S3 when `AWS_S3_BUCKET` is set |
-| `DELETE /api/documents/{id}` | delete a document and its chunks; same admin rule |
+| `DELETE /api/documents/{id}` | delete a document and its chunks (rate limited, no authentication) |
 | `POST /api/chat` | body `{question, history?, agent?, rerank?}`; responds with an SSE stream |
 
 Chat SSE events: `trace` (plan / search / results / reflect / sources), `retrieval_done`, `first_token`, `token`, `done`,
-`error`. Errors: `400` empty question / bad file type, `401` missing admin token, `413` input too large, `429` rate limited
+`error`. Errors: `400` empty question / bad file type, `413` input too large, `429` rate limited
 (with `Retry-After` and a JSON `detail`).
 
 ## Web UI
@@ -217,20 +217,22 @@ Chat SSE events: `trace` (plan / search / results / reflect / sources), `retriev
 - **Sidebar**: knowledge-base list with drag-and-drop upload and delete, saved **History** (stored in this browser's
   `localStorage`, last 30 chats), and switches for the agent loop and reranker.
 - **Polish**: light/dark theme with saved preference, responsive layout with a slide-in sidebar on mobile, friendly
-  rate-limit and error messages with a retry countdown, admin-token dialog when the server requires one.
+  rate-limit and error messages with a retry countdown.
 
 ## Security and cost protection
 
 - **Per-IP sliding-window rate limits** on the paid endpoints (table in [Configuration](#configuration)). Requests are
-  counted only if every applicable bucket allows them; unauthorized attempts also count, which slows token guessing.
+  counted only if every applicable bucket allows them; rejected attempts also count.
 - **Input caps**: question length, upload size, allowed file types, history trimmed to the last 6 turns.
-- **CORS** restricted to configured origins; **admin token** (constant-time compare) guards upload and delete.
+- **CORS** restricted to configured origins. There is **no authentication**: anyone who can reach the API can upload or
+  delete documents, limited only by the per-IP upload and delete rate limits. Do not expose an instance holding private
+  documents without putting authentication in front of it (reverse proxy, VPN or an auth layer).
 - **Secrets**: `.env` is git-ignored and excluded from Docker images; the git history was scanned for keys before pushing.
 
 Limits of the design: counters are in-memory and per process (a restart resets them, and several instances each count
 separately, so a shared store such as Redis is needed for multi-instance deployments). Behind a reverse proxy without
 `TRUST_PROXY=true`, all users share the proxy's IP and hit the limit together. These limits cap *requests*, not *spend*:
-also set a monthly budget cap in the OpenAI dashboard. The admin token is a single shared secret, not user accounts.
+also set a monthly budget cap in the OpenAI dashboard.
 
 ## Evaluation
 
@@ -346,8 +348,8 @@ python -m pytest -q        # or: python run.py --test
 None of the tests call OpenAI. Agent loop (`tests/test_agent_loop.py`, LLM and search stubbed): plan, parallel search,
 reflect and the single follow-up, dedupe (first hit wins), the 8-chunk cap (best by rerank score, else fused score), plan
 limits and fallbacks, history handling and the multi-part heuristic. Eval aggregation (mean, sd, noise flag). Rate limiter (per-minute, daily, upload, delete, per-IP isolation, `X-Forwarded-For`
-handling, disabled and zero-disabled limits, `Retry-After`), input caps (question length, upload size, file type), admin
-token enforcement, CORS allow/deny (including on 429 responses), and unit tests for chunking, RRF fusion, lexical term
+handling, disabled and zero-disabled limits, `Retry-After`), input caps (question length, upload size, file type),
+CORS allow/deny (including on 429 responses), and unit tests for chunking, RRF fusion, lexical term
 handling and the scorer. There are **no** tests for the LLM calls themselves or the frontend.
 
 ## Status: done and pending
@@ -355,7 +357,7 @@ handling and the scorer. There are **no** tests for the LLM calls themselves or 
 ### Done
 - **Backend**: schema with vector + full-text indexes; ingestion; lexical, dense, RRF and reranking (LLM and local); agent
   loop with trace events; grounded streaming generation; FastAPI SSE API with health, documents CRUD and chat.
-- **Protection**: configurable per-IP rate limits, size caps, CORS allow-list, optional admin token.
+- **Protection**: configurable per-IP rate limits, size caps, CORS allow-list.
 - **Frontend**: full chat UI (streaming, markdown, citations, source cards/drawer, reasoning trace, history, upload/delete,
   themes, mobile layout, error and rate-limit states). Checked in the browser: desktop, light theme, mobile layout without
   horizontal overflow, history persistence across reload, rate-limit error state.
@@ -373,8 +375,7 @@ handling and the scorer. There are **no** tests for the LLM calls themselves or 
 **Verification gaps**
 - Docker images have never been built or run (the Docker engine would not start here); treat Docker as untested.
 - `run.py` was only run on Windows, and `--reset`, `--prod`, `--seed` on an empty DB and a clean-machine first run were not tested.
-- The admin-token dialog in the UI was not exercised in a browser (the backend enforcement is covered by tests).
-- No tests for the agent loop, the LLM wrapper or the frontend.
+- No tests for the LLM wrapper or the frontend.
 
 **Product and operations**
 - **Deployment and a public demo link**: not done; needs hosting accounts (for example Fly.io or Render for the API, Vercel for `web/`).
