@@ -195,7 +195,7 @@ Everything is read from `.env` (see `.env.example`). Only the first two are requ
 | `LEXICAL_MODE` | `websearch` | `or`, `or_norm`, `websearch` or `trigram` (see Retrieval upgrades) |
 | `NEIGHBOR_EXPAND` | `1` | neighbouring chunks per side handed to the answerer with each hit (0 = off; about +40-50% tokens per question) |
 | `MAX_FOLLOWUPS` | `1` | follow-up searches the agent may make after reflecting |
-| `MODEL_PRICES` | built-in for `gpt-4.1-mini`, `text-embedding-3-small` | JSON `{"model": [usd_per_1M_input, usd_per_1M_output]}`; add `gpt-6-luna` here to get dollar costs |
+| `MODEL_PRICES` | built in: `gpt-6-luna` $0.10/$0.50, `gpt-4.1-mini` $0.40/$1.60, `text-embedding-3-small` $0.02 | JSON `{"model": [usd_per_1M_input, usd_per_1M_output]}` to override or add models |
 | `PROMPT_HARDENING` | `true` | wrap retrieved passages as untrusted data in every prompt (turn off only for the injection test) |
 | `JUDGE_MODEL` | *(answer model)* | eval-only: model that grades answers |
 | `TRUST_PROXY` | `false` | read client IP from `X-Forwarded-For` (only behind a proxy you control) |
@@ -267,18 +267,24 @@ Every chat request gets a **trace id**, and everything that happens inside it re
   SSE `done` event (shown under each answer in the UI). Only the question *length* is logged, never its text.
 - **`GET /api/stats`**: p50/p95 latency, tokens, average cost and average stage shares over the last 200 requests.
 
-Example log line for a simple question (`gpt-6-luna` has no price configured, so only its tokens are counted):
+Example log line for a simple question (`gpt-6-luna` at $0.10 in / $0.50 out per 1M tokens):
 
 ```json
 {"event":"request","trace_id":"6ed5b22437b7","wall_ms":6419,"first_token_ms":6035,
  "stages_ms":{"rerank":3401,"answer":1096,"dense":271,"lexical":161,"embed":0},
  "stage_share_pct":{"rerank":69.0,"answer":22.2,"dense":5.5,"lexical":3.3,"embed":0.0},"top_stage":"rerank",
  "tokens":{"prompt":3688,"completion":76,"calls":2},"usage":{"gpt-6-luna":[3688,76,2]},
- "cost_usd":0.0,"unpriced_models":["gpt-6-luna"],"agent":false,"rerank":true,"status":"ok","n_sources":5}
+ "cost_usd":0.000407,"unpriced_models":[],"agent":false,"rerank":true,"status":"ok","n_sources":5}
 ```
 
 What this immediately showed: with `gpt-6-luna` as the reranker, **reranking is about 69% of the time of a simple question**
 (3.4 s of 6.4 s). That is the latency cost of the model switch measured in the RFC evaluation, now visible per request.
+
+**What a question costs** (from the saved token counts, `gpt-6-luna` at $0.10/$0.50 per 1M tokens; cached-input discounts
+are not modelled, so these are slight overestimates): a simple question about **$0.0005** (rerank plus a short answer, about
+5k prompt tokens), a multi-part question through the agent loop about **$0.001** (about 11k prompt tokens over roughly 4
+model calls; the eval figures include the judge call). The whole 5-run RFC evaluation (all stages, 100 question-runs per
+stage) used about 1.9M prompt and 54k completion tokens, roughly **$0.22**.
 (An early version of the tracing lost the reranker calls made in the agent loop's worker threads: the trace context has to
 be captured in the calling thread. `tests/test_obs.py` guards this.)
 

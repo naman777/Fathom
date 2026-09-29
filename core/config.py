@@ -41,7 +41,9 @@ EMBED_MODEL = os.environ.get("EMBED_MODEL", "text-embedding-3-small")
 EMBED_DIM = 1536
 # USD per 1M tokens as [input, output]. Models missing here are reported as tokens only (cost "unpriced").
 # Override or extend with MODEL_PRICES='{"gpt-6-luna": [IN, OUT]}' in .env.
-MODEL_PRICES = {"gpt-4.1-mini": [0.40, 1.60], "text-embedding-3-small": [0.02, 0.0]}
+# gpt-6-luna: standard tier, short context ($0.10 in / $0.50 out per 1M). Cached-input discounts and the long-context
+# tier are not modelled, so costs are a slight overestimate for cached prompts.
+MODEL_PRICES = {"gpt-6-luna": [0.10, 0.50], "gpt-4.1-mini": [0.40, 1.60], "text-embedding-3-small": [0.02, 0.0]}
 try:
     MODEL_PRICES.update({k: [float(v[0]), float(v[1])] for k, v in json.loads(os.environ.get("MODEL_PRICES", "{}")).items()})
 except (ValueError, TypeError, IndexError, AttributeError):
