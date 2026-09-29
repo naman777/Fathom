@@ -1,7 +1,8 @@
 import sys
 import time
 
-from retrieval import dense, fuse, lexical, rerank as rr
+from core import config
+from retrieval import dense, fuse, lexical, rerank as rr, rerank_local
 
 
 def hybrid(conn, query: str, k: int = 6, candidates: int = 20, rerank: bool = True,
@@ -14,6 +15,8 @@ def hybrid(conn, query: str, k: int = 6, candidates: int = 20, rerank: bool = Tr
         lists.append(dense.search(conn, query, candidates, doc_ids))
     fused = fuse.rrf(lists, top=candidates) if len(lists) > 1 else lists[0]
     if rerank:
+        if config.RERANKER == "local":
+            return rerank_local.rerank(query, fused[:candidates], top=k)
         return rr.rerank(query, fused[:candidates], top=k)
     return fused[:k]
 

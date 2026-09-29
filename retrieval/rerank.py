@@ -1,4 +1,4 @@
-from core import llm
+from core import config, llm
 
 SYSTEM = (
     "You rerank passages for a search query. Score each passage 0-9 by how directly it helps answer the "
@@ -17,7 +17,7 @@ def rerank(query: str, candidates: list[dict], top: int = 6) -> list[dict]:
     listing = "\n".join(f"[{i}] {c['content'][:PASSAGE_CHARS]}" for i, c in enumerate(cands))
     res = llm.chat_json([
         {"role": "system", "content": SYSTEM},
-        {"role": "user", "content": f"Query: {query}\n\nPassages:\n{listing}"}], max_tokens=60)
+        {"role": "user", "content": f"Query: {query}\n\nPassages:\n{listing}"}], max_tokens=60, model=config.RERANK_MODEL)
     raw = res.get("s", [])
     scores = {}
     for i, v in enumerate(raw if isinstance(raw, list) else []):
