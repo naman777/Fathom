@@ -1,0 +1,27 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_PASSWORD: fathom
+      POSTGRES_DB: fathom
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+
+  api:
+    build: .
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      DB_URL: postgresql://postgres:fathom@db:5432/fathom
+    depends_on: [db]
+    ports: ["8000:8000"]
+    command: sh -c "python -m core.db && uvicorn api.main:app --host 0.0.0.0 --port 8000"
+
+  web:
+    build: ./web
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports: ["3000:3000"]
+    depends_on: [api]
+
+volumes:
+  pgdata:
