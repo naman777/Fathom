@@ -34,3 +34,20 @@ def test_scorer_recall_and_mrr():
     chunks = [{"content": "nothing"}, {"content": "xx Alpha  beta. yy"}]
     s = retrieval_scores(item, chunks, 3)
     assert s["recall"] == 0.5 and not s["full_hit"] and s["mrr"] == 0.5
+
+
+def test_aggregate_mean_sd_range_and_single_run():
+    from eval.scorer import aggregate
+    a = aggregate([{"full_hit@k": 0.86}, {"full_hit@k": 0.90}, {"full_hit@k": 0.88}])["full_hit@k"]
+    assert abs(a["mean"] - 0.88) < 1e-9 and abs(a["sd"] - 0.02) < 1e-9
+    assert (a["min"], a["max"], a["n"]) == (0.86, 0.90, 3)
+    assert aggregate([{"x": 1.0}])["x"]["sd"] == 0.0
+
+
+def test_noise_flag_and_pm_formatting():
+    from eval.run_eval import noise_flag, pm
+    lo = {"mean": 0.86, "sd": 0.02, "n": 3}
+    assert noise_flag(lo, {"mean": 0.87, "sd": 0.01, "n": 3}) == "within noise"
+    assert noise_flag(lo, {"mean": 0.95, "sd": 0.01, "n": 3}) == "up"
+    assert noise_flag({"mean": 0.8, "sd": 0.0, "n": 1}, {"mean": 0.9, "sd": 0.0, "n": 1}).startswith("n/a")
+    assert pm({"mean": 0.9, "sd": 0.0}) == "0.90" and pm({"mean": 0.9, "sd": 0.02}) == "0.90 ± 0.02"
