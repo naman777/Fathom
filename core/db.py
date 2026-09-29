@@ -1,0 +1,59 @@
+import psycopg
+from pgvector.psycopg import register_vector
+
+from core import config
+
+SCHEMA = f"""
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE IF NOT EXISTS documents (
+    id          SERIAL PRIMARY KEY,
+    title       TEXT NOT NULL,
+    source      TEXT,
+    created_at  TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS chunks (
+    id          SERIAL PRIMARY KEY,
+    document_id INT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    position    INT NOT NULL,
+    content     TEXT NOT NULL,
+    embedding   vector({config.EMBED_DIM}),
+    tsv         tsvector GENERATED ALWAYS AS (to_tsvector('english', content)) STORED
+);
+
+CREATE INDEX IF NOT EXISTS chunks_tsv_idx ON chunks USING gin (tsv);
+CREATE INDEX IF NOT EXISTS chunks_emb_idx ON chunks USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS chunks_doc_idx ON chunks (document_id);
+"""
+
+
+def connect(vectors: bool = True):
+    conn = psycopg.connect(config.DB_URL, autocommit=True)
+    if vectors:
+        register_vector(conn)
+    return conn
+
+
+def reset():
+    """Drop everything in the public schema and recreate the Fathom schema."""
+    with psycopg.connect(config.DB_URL, autocommit=True) as c:
+        c.execute("DROP SCHEMA public CASCADE")
+        c.execute("CREATE SCHEMA public")
+        c.execute(SCHEMA)
+
+
+def init():
+    with psycopg.connect(config.DB_URL, autocommit=True) as c:
+        c.execute(SCHEMA)
+
+
+if __name__ == "__main__":
+    import sys
+
+    if "--reset" in sys.argv:
+        reset()
+        print("database reset")
+    else:
+        init()
+        print("schema ensured")
