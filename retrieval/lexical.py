@@ -1,5 +1,7 @@
 import re
 
+from core import obs
+
 
 def _terms(query: str) -> list[str]:
     seen, out = set(), []
@@ -21,7 +23,8 @@ def search(conn, query: str, k: int = 20, doc_ids=None):
         filt = "AND c.document_id = ANY(%s)"
         params.append(list(doc_ids))
     params.append(k)
-    rows = conn.execute(f"""
+    with obs.stage("lexical"):
+        rows = conn.execute(f"""
         WITH q AS (SELECT to_tsquery('english', %s) AS tq)
         SELECT c.id, c.document_id, d.title, c.position, c.content,
                ts_rank_cd(c.tsv, q.tq) AS score

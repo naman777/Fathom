@@ -5,7 +5,7 @@ from functools import lru_cache
 
 from openai import OpenAI
 
-from core import config
+from core import config, obs
 
 _client = None
 
@@ -22,6 +22,7 @@ def _record(model: str, usage) -> None:
         u[0] += getattr(usage, "prompt_tokens", 0) or 0
         u[1] += getattr(usage, "completion_tokens", 0) or 0
         u[2] += 1
+    obs.record_usage(model, getattr(usage, "prompt_tokens", 0) or 0, getattr(usage, "completion_tokens", 0) or 0)
 
 
 def usage_snapshot() -> dict[str, list[int]]:
@@ -53,7 +54,8 @@ def _embed_cached(text: str) -> tuple:
 
 def embed_query(text: str) -> list[float]:
     """Cached single-query embedding (re-queries are free)."""
-    return list(_embed_cached(text))
+    with obs.stage("embed"):
+        return list(_embed_cached(text))
 
 
 def _is_reasoning(model: str) -> bool:
