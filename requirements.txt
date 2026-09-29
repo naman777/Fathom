@@ -1,0 +1,8 @@
+psycopg[binary]
+openai
+fastapi
+uvicorn[standard]
+pgvector
+pypdf
+python-multipart
+numpy
