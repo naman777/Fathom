@@ -22,6 +22,9 @@
 - UI: saved chat history (localStorage) with History tab; admin-token dialog; checked mobile layout (no overflow) and history persistence in browser.
 - Docker: compose file validated; added .dockerignore files (keep .env and node_modules out of images).
 
+- Launcher: `run.py` / `run.bat` (setup, health checks, clean shutdown, flags --seed/--prod/--test/--eval/--reset); verified on Windows.
+- README rewritten in full (how it works, config, API, security, evaluation, status, deviations from plan).
+
 ## In progress
 - Nothing.
 
@@ -31,6 +34,8 @@
 - First-token < 1.5 s and retrieval+rerank < 400 ms targets are still not met (see README).
 - Real-world corpus evaluation; multi-user auth; server-side chat storage; Redis-backed rate limits.
 - Admin-token dialog verified only by backend tests, not exercised in the browser.
+- run.py: --reset, --prod, --seed on empty DB, clean-machine first run and Linux/macOS untested.
+- No tests for the agent loop, LLM wrapper or frontend; no observability; ingestion is synchronous.
 
 ## Notes / decisions
 - OpenAI used instead of Claude (only key provided). Answers on gpt-6-luna (reasoning_effort=low); rerank/plan on gpt-4.1-mini.
