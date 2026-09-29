@@ -12,7 +12,7 @@ def read_file(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="ignore")
 
 
-def ingest_text(title: str, text: str, source: str | None = None, conn=None) -> dict:
+def ingest_text(title: str, text: str, source: str | None = None, conn=None, s3_key: str | None = None) -> dict:
     chunks = split_text(text)
     if not chunks:
         return {"title": title, "chunks": 0}
@@ -21,8 +21,8 @@ def ingest_text(title: str, text: str, source: str | None = None, conn=None) -> 
     conn = conn or db.connect()
     try:
         doc_id = conn.execute(
-            "INSERT INTO documents(title, source) VALUES (%s,%s) RETURNING id",
-            (title, source)).fetchone()[0]
+            "INSERT INTO documents(title, source, s3_key) VALUES (%s,%s,%s) RETURNING id",
+            (title, source, s3_key)).fetchone()[0]
         with conn.cursor() as cur:
             cur.executemany(
                 "INSERT INTO chunks(document_id, position, content, embedding) VALUES (%s,%s,%s,%s)",

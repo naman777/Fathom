@@ -189,7 +189,6 @@ Everything is read from `.env` (see `.env.example`). Only the first two are requ
 | `MAX_QUESTION_CHARS` / `MAX_UPLOAD_MB` | `1000` / `10` | input size caps |
 | `TRUST_PROXY` | `false` | read client IP from `X-Forwarded-For` (only behind a proxy you control) |
 | `CORS_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | allowed browser origins (`*` = any, dev only) |
-| `ADMIN_TOKEN` | empty | if set, upload/delete require header `X-Admin-Token` |
 
 `0` disables an individual rate limit. The gpt-5/6 model families reject `max_tokens` and custom temperature;
 `core/llm.py` chooses the correct parameters per model family automatically.
@@ -200,7 +199,7 @@ Everything is read from `.env` (see `.env.example`). Only the first two are requ
 |---|---|
 | `GET /api/health` | liveness + DB check |
 | `GET /api/documents` | list documents with chunk counts |
-| `POST /api/documents` | upload a `.txt`/`.md`/`.pdf` (multipart field `file`); needs `X-Admin-Token` if `ADMIN_TOKEN` is set |
+| `POST /api/documents` | upload a `.txt`/`.md`/`.pdf` (multipart field `file`); stored in S3 when `AWS_S3_BUCKET` is set |
 | `DELETE /api/documents/{id}` | delete a document and its chunks; same admin rule |
 | `POST /api/chat` | body `{question, history?, agent?, rerank?}`; responds with an SSE stream |
 
@@ -337,7 +336,7 @@ handling and the scorer. There are **no** tests for the agent loop, the LLM call
 
 **Product and operations**
 - **Deployment and a public demo link**: not done; needs hosting accounts (for example Fly.io or Render for the API, Vercel for `web/`).
-- **Authentication**: only a single shared `ADMIN_TOKEN`; no user accounts, per-user documents or multi-tenancy.
+- **Authentication**: none: uploads/deletes are open to anyone (protected only by per-IP rate limits); no user accounts, per-user documents or multi-tenancy.
 - **Server-side chat storage**: history lives only in the browser.
 - **Shared rate-limit store** (Redis) for multi-instance deployments.
 - Ingestion is synchronous per upload (large PDFs block the request) and there is no re-ingest / dedupe of identical files.

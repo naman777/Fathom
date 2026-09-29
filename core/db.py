@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS chunks (
     tsv         tsvector GENERATED ALWAYS AS (to_tsvector('english', content)) STORED
 );
 
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS s3_key TEXT;
+
 CREATE INDEX IF NOT EXISTS chunks_tsv_idx ON chunks USING gin (tsv);
 CREATE INDEX IF NOT EXISTS chunks_emb_idx ON chunks USING hnsw (embedding vector_cosine_ops);
 CREATE INDEX IF NOT EXISTS chunks_doc_idx ON chunks (document_id);
