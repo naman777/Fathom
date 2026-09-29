@@ -1,8 +1,12 @@
 import re
 
+from core import config
 
-def split_text(text: str, target: int = 900, overlap: int = 150) -> list[str]:
-    """Paragraph/sentence-aware chunking with character overlap."""
+
+def split_text(text: str, target: int | None = None, overlap: int | None = None) -> list[str]:
+    """Paragraph/sentence-aware chunking with character overlap (defaults from config.CHUNK_*)."""
+    target = target or config.CHUNK_TARGET
+    overlap = config.CHUNK_OVERLAP if overlap is None else overlap
     text = re.sub(r"[ \t]+", " ", text.replace("\r\n", "\n")).strip()
     paras = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
     units = []

@@ -188,6 +188,7 @@ Everything is read from `.env` (see `.env.example`). Only the first two are requ
 | `RATE_LIMIT_UPLOAD_PER_HOUR` / `_DELETE_PER_HOUR` | `10` / `20` | document changes per IP |
 | `RATE_LIMIT_GLOBAL_PER_MINUTE` | `120` | any `/api/*` request per IP |
 | `MAX_QUESTION_CHARS` / `MAX_UPLOAD_MB` | `1000` / `10` | input size caps |
+| `CHUNK_TARGET` / `CHUNK_OVERLAP` | `900` / `150` | chunk size in characters (affects documents ingested afterwards) |
 | `TRUST_PROXY` | `false` | read client IP from `X-Forwarded-For` (only behind a proxy you control) |
 | `CORS_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | allowed browser origins (`*` = any, dev only) |
 
@@ -253,27 +254,26 @@ Lexical, dense and hybrid are deterministic for a fixed index, so they run once 
 
 | Stage | Recall@5 | Full-hit@5 | MRR | Retrieval p50 / p95 (ms) |
 |---|---|---|---|---|
-| lexical (Postgres FTS) | 0.91 | 0.85 | 0.79 | 206 / 309 |
-| dense (pgvector) | 0.87 | 0.82 | 0.74 | 877 / 1311 |
-| hybrid (RRF) | 0.88 | 0.81 | 0.82 | 464 / 681 |
-| hybrid + rerank (`gpt-4.1-mini`) | 0.94 ± 0.01 | 0.89 ± 0.01 | 0.87 ± 0.00 | 1483 / 1939 |
-| full pipeline, no agent | 0.94 | 0.89 | 0.87 ± 0.00 | 1559 / 2004 |
-| full pipeline + agent loop* | 0.94 ± 0.00 | 0.91 ± 0.01 | 0.86 ± 0.01 | 1527 / 7619 |
+| lexical (Postgres FTS) | 0.91 | 0.85 | 0.79 | 197 / 276 |
+| dense (pgvector) | 0.87 | 0.82 | 0.74 | 917 / 1792 |
+| hybrid (RRF) | 0.88 | 0.81 | 0.82 | 565 / 691 |
+| hybrid + rerank (`gpt-4.1-mini`, 20 candidates) | 0.93 ± 0.01 | 0.89 ± 0.02 | 0.86 ± 0.01 | 1744 / 2174 |
+| full pipeline, no agent | 0.93 ± 0.01 | 0.90 ± 0.01 | 0.87 ± 0.00 | 1737 / 2153 |
+| full pipeline + agent loop* | 0.94 ± 0.01 | 0.90 ± 0.02 | 0.86 ± 0.01 | 1852 / 8497 |
 
 | Generation | Answer accuracy | Unsupported-claim rate | First token p50 / p95 (ms) | End-to-end p50 / p95 (ms) |
 |---|---|---|---|---|
-| no agent | 0.87 ± 0.02 | 0.006 ± 0.003 | 2471 / 3336 | 2817 / 4116 |
-| with agent loop | 0.89 ± 0.01 | 0.014 ± 0.002 | 2554 / 8902 | 2798 / 9902 |
+| no agent | 0.88 ± 0.02 | 0.008 ± 0.010 | 2669 / 3580 | 2968 / 4274 |
+| with agent loop | 0.90 ± 0.02 | 0.006 ± 0.003 | 2810 / 9671 | 3075 / 10582 |
 
-**Multi-hop questions only (Full-hit@5):** hybrid 0.32, hybrid + rerank 0.58 ± 0.05, agent loop **0.65 ± 0.03**.
+**Multi-hop questions only (Full-hit@5):** hybrid 0.32, hybrid + rerank 0.58 ± 0.09, no agent 0.63 ± 0.05, agent loop 0.61 ± 0.06.
 
-What holds up once run-to-run spread is counted: reranking is a real gain over hybrid (0.81 to 0.89 full-hit), and the agent
-loop's gain on multi-hop questions is real but modest on this corpus. What does **not** hold up: the agent loop's overall
-answer-accuracy lift (0.87 vs 0.89 is about one sd apart) and the earlier claim that it lowers unsupported claims (it
-raises them, 0.6% to 1.4%). Retrieval-only stages other than rerank have no sd because they are deterministic, so the
-lexical/dense/hybrid ordering is exact for this index but reflects only these 72 questions.
+Reading it with the error bars: reranking is a real gain over hybrid (0.81 to 0.89). On this synthetic corpus the agent loop
+is **not** distinguishable from the no-agent pipeline on any metric (all differences are within one sd) while costing about
+3.5x the p95 latency. An earlier README claimed a clear agent-loop gain here; that came from single runs and an
+under-provisioned reranker (see below) and does not survive repeated runs.
 
-### Results on a real corpus (11 IETF RFCs, 20 hand-labelled questions, K = 5, 5 runs)
+### Results on a real corpus (11 IETF RFCs, 20 labelled questions, K = 5, 5 runs)
 
 `python -m eval.real_corpus --ingest`, then `python -m eval.run_eval --golden real_golden_set.json --runs 5 --out results_real_rfc`
 (remove the RFCs afterwards with `python -m eval.real_corpus --remove`). The corpus is RFC 793, 1035, 3986, 5321, 6265, 6455,
@@ -284,22 +284,39 @@ from the source. Full output: [`eval/results/results_real_rfc.md`](eval/results/
 
 | Stage | Recall@5 | Full-hit@5 | MRR |
 |---|---|---|---|
-| lexical (Postgres FTS) | 0.38 | 0.30 | 0.26 |
+| lexical (Postgres FTS) | 0.42 | 0.35 | 0.24 |
 | dense (pgvector) | 0.53 | 0.45 | 0.53 |
-| hybrid (RRF) | 0.50 | 0.40 | 0.42 |
-| hybrid + rerank | 0.57 ± 0.01 | 0.45 | 0.64 ± 0.01 |
-| full pipeline + agent loop | 0.65 ± 0.01 | 0.59 ± 0.02 | 0.62 ± 0.02 |
+| hybrid (RRF) | 0.50 | 0.40 | 0.47 |
+| hybrid + rerank | 0.72 ± 0.04 | 0.65 ± 0.04 | 0.74 ± 0.05 |
+| full pipeline, no agent | 0.76 ± 0.03 | 0.68 ± 0.03 | 0.76 ± 0.04 |
+| full pipeline + agent loop | 0.81 ± 0.01 | 0.78 ± 0.03 | 0.74 ± 0.00 |
 
-Answer accuracy: 0.80 ± 0.05 without the agent, 0.88 ± 0.03 with it. Multi-part questions (5) full-hit: 0.00 for every
-non-agent stage, 0.56 ± 0.09 with the agent loop.
+Answer accuracy 0.86 ± 0.04 without the agent, 0.90 ± 0.05 with it; unsupported claims about 1% either way. Multi-part
+questions (5) full-hit: 0.36 ± 0.09 without the agent, **0.72 ± 0.11** with it.
 
-The synthetic numbers do **not** transfer: full-hit falls from 0.89 to 0.45 for hybrid + rerank, and lexical search, the
-strongest single retriever on synthetic text, is the weakest here (0.30) because RFC prose repeats the same terms across
-hundreds of chunks. The agent loop's multi-part advantage does hold up, and is larger here. Failures were inspected: no
-quote straddles a chunk boundary, so the misses are retrieval misses. Typically the right RFC and neighbouring chunks come
-back but not the exact chunk holding a short definition (for example the JWT `iss` claim or the TLS 2^14 record limit).
-Scoring counts a chunk as a hit only if it contains the labelled quote, so a different passage that also answers the
-question (the TCP MSL question returned "lifetime is two minutes") counts as a miss; treat retrieval numbers as a lower bound.
+Takeaways: absolute quality on real text is much lower than on synthetic text, and the ranking of retrievers differs (lexical
+is the weakest here, the strongest on synthetic text). Reranking and the agent loop both help on real text, and the agent
+loop's gain on multi-part questions is large and outside the noise. With 20 questions one question is 5 points of full-hit,
+so treat differences of a few points as noise.
+
+### What the real-corpus run found and fixed
+
+The first real-corpus run scored 0.45 full-hit for hybrid + rerank. Investigation showed two causes:
+
+1. **The reranker only scored the top 8 fused candidates**, and the gold passage was in that pool for just 45% of questions
+   (top 20: 70%, top 30: 85%). The reranker could reorder the pool but never recover from it.
+2. **A hidden bug blocked widening the pool**: the rerank call had `max_tokens=60`, which truncates the JSON score list once
+   there are more than ~8 candidates. The parse failed, the code silently fell back to the fused order, and so a wider pool
+   looked *worse*. The token budget now scales with the candidate count (`tests/test_rerank.py` covers it).
+
+Pool-size sweep on the RFC set after the fix (3 runs): 8 candidates 0.45 full-hit, **20 candidates 0.67 ± 0.06**, 30
+candidates 0.55 ± 0.05 (a very long listwise prompt is scored less accurately). 20 is the default (`retrieval/rerank.py`,
+`MAX_CANDIDATES`), costing about 100-150 ms.
+
+Chunk size was also tried at 20 candidates (`CHUNK_TARGET` / `CHUNK_OVERLAP`, default 900/150): 450 chars 0.62 ± 0.03
+full-hit, **600 chars 0.77 ± 0.03**, 900 chars 0.67 ± 0.06. 600 looks best but the curve is not monotonic and 20 questions
+cannot settle it, and it could not be checked on the synthetic set without re-ingesting those documents, so the default is
+unchanged. Worth re-testing on a larger labelled set. `python -m eval.tune_rerank` reproduces the pool sweep.
 
 ### Model and reranker comparisons
 
@@ -333,6 +350,8 @@ matters most in RAG. Earlier runs on `gpt-4o-mini` and all-`gpt-6-luna` are kept
 - **The synthetic data is synthetic**: corpus and questions are LLM-generated, and the judge is the same model family as the
   generator. The real-corpus run shows the absolute numbers do not transfer (see above); use the synthetic set for relative
   comparisons only.
+- **Retrieval numbers are a lower bound**: a chunk counts as a hit only if it contains the labelled quote, so a different
+  passage that also answers the question counts as a miss.
 - **The real-corpus set is small and labelled by an LLM**: 20 questions, written by Claude from verbatim RFC sentences, not by
   an independent human, and the answer judge is still the same model family. Lean on the judge-free retrieval metrics.
   With n = 20, one question is 5 points of full-hit, so the sd across runs understates the sampling uncertainty.
@@ -347,7 +366,7 @@ python -m pytest -q        # or: python run.py --test
 
 None of the tests call OpenAI. Agent loop (`tests/test_agent_loop.py`, LLM and search stubbed): plan, parallel search,
 reflect and the single follow-up, dedupe (first hit wins), the 8-chunk cap (best by rerank score, else fused score), plan
-limits and fallbacks, history handling and the multi-part heuristic. Eval aggregation (mean, sd, noise flag). Rate limiter (per-minute, daily, upload, delete, per-IP isolation, `X-Forwarded-For`
+limits and fallbacks, history handling and the multi-part heuristic. The reranker (`tests/test_rerank.py`: token budget scales with pool size, ordering, fallback, candidate cap). Eval aggregation (mean, sd, noise flag). Rate limiter (per-minute, daily, upload, delete, per-IP isolation, `X-Forwarded-For`
 handling, disabled and zero-disabled limits, `Retry-After`), input caps (question length, upload size, file type),
 CORS allow/deny (including on 429 responses), and unit tests for chunking, RRF fusion, lexical term
 handling and the scorer. There are **no** tests for the LLM calls themselves or the frontend.

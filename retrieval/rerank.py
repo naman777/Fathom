@@ -5,7 +5,7 @@ SYSTEM = (
     "query (9 = contains the answer). Return JSON: {\"s\": [<digit per passage, in order>]} — exactly one "
     "digit per passage."
 )
-MAX_CANDIDATES = 8
+MAX_CANDIDATES = 20  # measured: full-hit 0.45 (8) -> 0.67 (20) -> 0.55 (30) on the RFC set
 PASSAGE_CHARS = 1000
 
 
@@ -17,7 +17,7 @@ def rerank(query: str, candidates: list[dict], top: int = 6) -> list[dict]:
     listing = "\n".join(f"[{i}] {c['content'][:PASSAGE_CHARS]}" for i, c in enumerate(cands))
     res = llm.chat_json([
         {"role": "system", "content": SYSTEM},
-        {"role": "user", "content": f"Query: {query}\n\nPassages:\n{listing}"}], max_tokens=60, model=config.RERANK_MODEL)
+        {"role": "user", "content": f"Query: {query}\n\nPassages:\n{listing}"}], max_tokens=20 + 4 * len(cands), model=config.RERANK_MODEL)
     raw = res.get("s", [])
     scores = {}
     for i, v in enumerate(raw if isinstance(raw, list) else []):
