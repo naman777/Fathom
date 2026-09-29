@@ -65,7 +65,7 @@ export default function ResultsPage() {
           <Headline
             label="Average cost per question"
             value={stats?.cost_usd_avg != null ? fmtUsd(stats.cost_usd_avg) : "not set"}
-            sub={stats?.requests ? `over the last ${stats.requests} live requests` : stats?.requests === 0 ? "ask a question to populate this" : "set MODEL_PRICES for luna to see dollars"}
+            sub={stats?.requests ? `over the last ${stats.requests} live requests` : stats?.requests === 0 ? "ask a question to populate this" : "ask a question to populate this"}
           />
         </div>
       )}
