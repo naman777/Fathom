@@ -16,7 +16,30 @@ web/         Next.js chat UI: streaming, clickable citations, reasoning-trace pa
 
 ## Run
 
-Needs `.env` with `OPENAI_API_KEY` and `DB_URL` (any Postgres with the `vector` extension).
+Needs Python 3.10+, Node.js 20+, and a `.env` with `OPENAI_API_KEY` and `DB_URL` (any Postgres with the `vector`
+extension; copy `.env.example`).
+
+**One command** (Windows: `run.bat`, or `python run.py` anywhere):
+
+```bash
+python run.py
+```
+
+It creates `.venv` and installs dependencies on first run, runs `npm install`, makes sure the DB schema exists (it never
+drops data by itself), offers to ingest the sample corpus if the DB is empty, starts the API (`:8000`) and the web UI
+(`:3000`), opens the browser, and stops both cleanly on Ctrl+C.
+
+| Flag | Effect |
+|---|---|
+| `--seed` | ingest `data/corpus` if the DB has no documents, without prompting |
+| `--prod` | `next build` + `next start` instead of the dev server |
+| `--no-web` / `--no-open` | API only / don't open the browser |
+| `--test` | run the test suite and exit |
+| `--eval` | run the evaluation harness and exit |
+| `--reset` | **drop all tables** in the DB's public schema and recreate them (asks for confirmation) |
+| `--api-port N` / `--web-port N` | change ports |
+
+Manual steps, if you prefer:
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r requirements.txt   # Windows path; use .venv/bin on Linux/macOS
