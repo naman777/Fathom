@@ -1,0 +1,8 @@
+.env
+.venv
+.git
+web
+__pycache__
+*.log
+data/_upload
+tests

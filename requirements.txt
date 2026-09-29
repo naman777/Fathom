@@ -6,3 +6,6 @@ pgvector
 pypdf
 python-multipart
 numpy
+
+# Optional: local ONNX reranker (RERANKER=local)
+# fastembed
