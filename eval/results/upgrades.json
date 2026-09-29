@@ -1,0 +1,49 @@
+[
+  {
+    "title": "Retrieval upgrades on real documents",
+    "note": "11 RFCs, 20 hand-labelled questions, K=5. The first six rows are before reranking (deterministic); the last three add the LLM reranker over 20 candidates (3 runs, mean ± sd). Headers = contextual chunk headers; websearch = websearch_to_tsquery with an OR top-up.",
+    "columns": ["Configuration", "Recall@5", "Full-hit@5", "MRR"],
+    "rows": [
+      ["Lexical only · OR search · plain chunks", "0.42", "0.35", "0.24"],
+      ["Lexical only · OR search · headers", "0.45", "0.35", "0.27"],
+      ["Lexical only · websearch · headers", "0.55", "0.45", "0.34"],
+      ["Hybrid, no rerank · OR · plain", "0.50", "0.40", "0.47"],
+      ["Hybrid, no rerank · OR · headers", "0.57", "0.45", "0.50"],
+      ["Hybrid, no rerank · websearch · headers", "0.68", "0.55", "0.60"],
+      ["Hybrid + rerank · OR · plain", "0.71 ± 0.04", "0.62 ± 0.03", "0.74 ± 0.03"],
+      ["Hybrid + rerank · OR · headers", "0.74 ± 0.01", "0.63 ± 0.03", "0.79 ± 0.01"],
+      ["Hybrid + rerank · websearch · headers", "0.77 ± 0.03", "0.67 ± 0.03", "0.84 ± 0.01"]
+    ]
+  },
+  {
+    "title": "Lexical search modes on the synthetic corpus",
+    "note": "72 questions, no LLM calls. Trigram matching is poor on its own for long natural-language questions and was not tried on the RFC set; OR-with-length-normalisation gave no gain.",
+    "columns": ["Mode", "Lexical: recall / full-hit / MRR", "Hybrid (no rerank): recall / full-hit / MRR"],
+    "rows": [
+      ["OR (previous default)", "0.91 / 0.85 / 0.79", "0.88 / 0.81 / 0.82"],
+      ["OR, length-normalised", "0.92 / 0.86 / 0.77", "0.88 / 0.81 / 0.80"],
+      ["websearch + OR top-up (now default)", "0.91 / 0.85 / 0.83", "0.89 / 0.82 / 0.83"],
+      ["Trigram (pg_trgm)", "0.25 / 0.25 / 0.24", "0.87 / 0.82 / 0.78"]
+    ]
+  },
+  {
+    "title": "Neighbour (parent-document) expansion",
+    "note": "Real documents, answers without the agent loop, 3 runs, headers + websearch. Each retrieved chunk is handed to the answerer together with the chunk before and after it. Full-hit is measured on the expanded text, so it is not comparable with the K=5 rows above; answer accuracy is the fair comparison.",
+    "columns": ["Setting", "Full-hit (expanded)", "Answer accuracy", "Unsupported claims", "Model tokens", "End-to-end p50"],
+    "rows": [
+      ["No expansion", "0.67 ± 0.03", "0.77 ± 0.03", "0.01 ± 0.01", "431k", "5.1 s"],
+      ["Expand ±1 chunk (now default)", "0.78 ± 0.03", "0.93 ± 0.03", "0.02 ± 0.03", "603k (+40%)", "5.7 s"]
+    ]
+  },
+  {
+    "title": "Iterative retrieval: 1 vs 3 follow-up searches",
+    "note": "Multi-part questions only, agent loop. More hops did not help: on real documents full-hit fell and latency doubled; on the synthetic set there was no gain. One follow-up remains the default.",
+    "columns": ["Corpus", "Follow-ups", "Full-hit@5", "Recall@5", "End-to-end p50 / p95", "Model tokens"],
+    "rows": [
+      ["Real (5 questions, 3 runs)", "1", "0.73 ± 0.12", "0.87 ± 0.06", "18.8 s / 20.9 s", "271k"],
+      ["Real (5 questions, 3 runs)", "3", "0.53 ± 0.12", "0.77 ± 0.06", "40.3 s / 75.6 s", "378k"],
+      ["Synthetic (19 questions, 2 runs)", "1", "0.82 ± 0.11", "0.91 ± 0.06", "11.1 s / 20.9 s", "418k"],
+      ["Synthetic (19 questions, 2 runs)", "3", "0.76 ± 0.04", "0.87 ± 0.00", "11.7 s / 32.0 s", "485k"]
+    ]
+  }
+]

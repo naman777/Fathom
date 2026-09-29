@@ -13,6 +13,7 @@ from agent import loop
 from core import config, db, llm
 from eval import scorer
 from generation import prompt
+from retrieval import expand
 from retrieval.search import hybrid
 
 RES = config.ROOT / "eval" / "results"
@@ -38,6 +39,8 @@ def e2e_stage(golden, k, use_agent, reuse=None):
             t = time.time()
             if reuse is not None:
                 chunks, ret_ms = reuse[item["id"]]
+                if config.NEIGHBOR_EXPAND:                       # same evidence assembly as agent.loop.run
+                    chunks = expand.expand(c, chunks, config.NEIGHBOR_EXPAND)
             else:
                 chunks = []
                 for ev in loop.run(c, item["question"], rerank=True, use_agent=use_agent, k=k):
