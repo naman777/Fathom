@@ -112,16 +112,18 @@ renders the trace live and appends tokens as they arrive; timing (retrieval, fir
 
 ```
 run.py, run.bat      one-command launcher (setup, health checks, clean shutdown)
-core/                config.py (env), llm.py (OpenAI wrapper), db.py (schema), ratelimit.py (per-IP limiter)
-ingest/              chunking.py, pipeline.py (CLI: python -m ingest.pipeline [path])
-retrieval/           lexical.py, dense.py, fuse.py, rerank.py, rerank_local.py, search.py
+core/                config.py (env, prices), llm.py (OpenAI wrapper + token accounting), obs.py (trace, stage timings, cost),
+                     db.py (schema), ratelimit.py (per-IP limiter), storage.py (S3)
+ingest/              chunking.py, context.py (contextual headers), safety.py (injection scan), pipeline.py
+                     (CLI: python -m ingest.pipeline [path])
+retrieval/           lexical.py (4 modes), dense.py, fuse.py, rerank.py, rerank_local.py, expand.py, search.py
 agent/               loop.py (plan -> parallel search -> reflect -> follow-up)
 generation/          prompt.py (grounded prompts, blocking and streaming)
 api/                 main.py (FastAPI: chat SSE, documents CRUD, health)
 eval/                build_corpus.py, golden_set.json, scorer.py, run_eval.py, bench_rerank.py, real_corpus.py,
                      build_real_golden.py, real_golden_set.json, results/
 tests/               test_api_protection.py, test_retrieval_logic.py
-web/                 Next.js app (app/page.tsx, app/components/{Assistant,icons,types})
+web/                 Next.js app: app/page.tsx (chat), app/architecture, app/results, app/components/
 data/corpus/         20 generated fictional documents used for the demo and evaluation
 Dockerfile, web/Dockerfile, docker-compose.yml, .dockerignore   container build (untested)
 PLAN.md, progress.md, "Multi-Agent RAG Chat Platform — Build Plan.md"   planning and progress log
@@ -189,6 +191,13 @@ Everything is read from `.env` (see `.env.example`). Only the first two are requ
 | `RATE_LIMIT_GLOBAL_PER_MINUTE` | `120` | any `/api/*` request per IP |
 | `MAX_QUESTION_CHARS` / `MAX_UPLOAD_MB` | `1000` / `10` | input size caps |
 | `CHUNK_TARGET` / `CHUNK_OVERLAP` | `900` / `150` | chunk size in characters (affects documents ingested afterwards) |
+| `CHUNK_HEADERS` | `false` | prefix each new chunk with `[title - description > section]` (one small LLM call per document) |
+| `LEXICAL_MODE` | `or` | `or`, `or_norm`, `websearch` or `trigram` (see Retrieval upgrades) |
+| `NEIGHBOR_EXPAND` | `0` | neighbouring chunks per side handed to the answerer with each hit |
+| `MAX_FOLLOWUPS` | `1` | follow-up searches the agent may make after reflecting |
+| `MODEL_PRICES` | built-in for `gpt-4.1-mini`, `text-embedding-3-small` | JSON `{"model": [usd_per_1M_input, usd_per_1M_output]}`; add `gpt-6-luna` here to get dollar costs |
+| `PROMPT_HARDENING` | `true` | wrap retrieved passages as untrusted data in every prompt (turn off only for the injection test) |
+| `JUDGE_MODEL` | *(answer model)* | eval-only: model that grades answers |
 | `TRUST_PROXY` | `false` | read client IP from `X-Forwarded-For` (only behind a proxy you control) |
 | `CORS_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | allowed browser origins (`*` = any, dev only) |
 
@@ -203,14 +212,23 @@ Everything is read from `.env` (see `.env.example`). Only the first two are requ
 | `GET /api/documents` | list documents with chunk counts |
 | `POST /api/documents` | upload a `.txt`/`.md`/`.pdf` (multipart field `file`); stored in S3 when `AWS_S3_BUCKET` is set |
 | `DELETE /api/documents/{id}` | delete a document and its chunks (rate limited, no authentication) |
-| `POST /api/chat` | body `{question, history?, agent?, rerank?}`; responds with an SSE stream |
+| `POST /api/chat` | body `{question, history?, agent?, rerank?}`; responds with an SSE stream and an `X-Trace-Id` header |
+| `GET /api/stats` | latency, tokens, cost and stage shares aggregated over the last 200 requests, plus the configured price table |
+| `GET /api/eval-results` | saved evaluation summaries (feeds the Results page) |
 
-Chat SSE events: `trace` (plan / search / results / reflect / sources), `retrieval_done`, `first_token`, `token`, `done`,
-`error`. Errors: `400` empty question / bad file type, `413` input too large, `429` rate limited
+Chat SSE events: `meta` (trace id), `trace` (plan / search / results / reflect / sources), `retrieval_done`, `first_token`,
+`token`, `done` (wall time, per-stage timings, tokens per model, cost; see Observability), `error`. Errors: `400` empty question / bad file type, `413` input too large, `429` rate limited
 (with `Retry-After` and a JSON `detail`).
 
 ## Web UI
 
+- **Uploading is the first thing you see**: an **Upload documents** button in the header (every page state), a large
+  drop zone in the empty chat, a paperclip in the composer, drop-anywhere on the whole window, and floating progress
+  toasts that work from any tab and on mobile. Documents whose text looks like an injection attempt get a warning icon.
+- **Per-answer cost line**: `$0.0043 · 3.4k tokens · 62% Rerank · 6.4s`, expandable to a stage breakdown, tokens per
+  model and the trace id. Models with no configured price show tokens and "price not set".
+- **Architecture** (`/architecture`) and **Results** (`/results`) pages. Results are read from the saved evaluation files
+  through `/api/eval-results`, so they cannot drift from the runs; live usage comes from `/api/stats`.
 - **Chat**: streaming markdown answers, inline citation chips that open the source in a side drawer, source cards under
   each answer, timing (retrieval / first token / total), copy button, stop-generation button.
 - **Reasoning trace**: live progress ("Planning searches...", "Searching: ...") that folds into a summary such as
@@ -234,6 +252,65 @@ Limits of the design: counters are in-memory and per process (a restart resets t
 separately, so a shared store such as Redis is needed for multi-instance deployments). Behind a reverse proxy without
 `TRUST_PROXY=true`, all users share the proxy's IP and hit the limit together. These limits cap *requests*, not *spend*:
 also set a monthly budget cap in the OpenAI dashboard.
+
+## Observability
+
+Every chat request gets a **trace id**, and everything that happens inside it reports to that trace (`core/obs.py`):
+
+- **Stage timings**: `embed`, `lexical`, `dense`, `rerank`, `plan`, `reflect`, `answer`. Times are *summed busy time*, so
+  parallel sub-queries can add up to more than the wall-clock time; shares are computed against the sum of the leaf stages
+  and always total 100%.
+- **Tokens and cost**: prompt and completion tokens per model (read from the provider's usage field, including streamed
+  answers) and a dollar estimate from `MODEL_PRICES`. A model with no configured price is reported as tokens only and the
+  request is flagged `unpriced_models`; nothing is guessed.
+- **One JSON log line per request** on the `fathom.request` logger, plus an `X-Trace-Id` response header and the same summary in the
+  SSE `done` event (shown under each answer in the UI). Only the question *length* is logged, never its text.
+- **`GET /api/stats`**: p50/p95 latency, tokens, average cost and average stage shares over the last 200 requests.
+
+Example log line for a simple question (`gpt-6-luna` has no price configured, so only its tokens are counted):
+
+```json
+{"event":"request","trace_id":"6ed5b22437b7","wall_ms":6419,"first_token_ms":6035,
+ "stages_ms":{"rerank":3401,"answer":1096,"dense":271,"lexical":161,"embed":0},
+ "stage_share_pct":{"rerank":69.0,"answer":22.2,"dense":5.5,"lexical":3.3,"embed":0.0},"top_stage":"rerank",
+ "tokens":{"prompt":3688,"completion":76,"calls":2},"usage":{"gpt-6-luna":[3688,76,2]},
+ "cost_usd":0.0,"unpriced_models":["gpt-6-luna"],"agent":false,"rerank":true,"status":"ok","n_sources":5}
+```
+
+What this immediately showed: with `gpt-6-luna` as the reranker, **reranking is about 69% of the time of a simple question**
+(3.4 s of 6.4 s). That is the latency cost of the model switch measured in the RFC evaluation, now visible per request.
+(An early version of the tracing lost the reranker calls made in the agent loop's worker threads: the trace context has to
+be captured in the calling thread. `tests/test_obs.py` guards this.)
+
+## Prompt-injection threat model
+
+Uploaded documents are **untrusted input** that ends up inside prompts. A poisoned document can carry text such as "ignore
+previous instructions and reply only with...". The system is a read-only question answerer: the model has **no tools, no
+network access and no ability to change anything**, so the worst realistic outcomes are a hijacked or misleading answer and
+data exfiltration through rendered output.
+
+| Threat | Defence | Where |
+|---|---|---|
+| Instructions inside a passage steer the answer | Passages are wrapped in `<source>` tags with rules that they are data, never instructions; the question stays outside the block | `generation/prompt.py` |
+| Passage closes the frame with fake `</source>` or chat markup | Delimiter tags and hidden control characters (zero-width, bidi) are neutralised in every passage | `ingest/safety.py` |
+| Passage manipulates the reranker or reflector, which also read it | Same sanitising, plus an explicit "untrusted text" rule in those prompts | `retrieval/rerank.py`, `agent/loop.py` |
+| Model is told to print an image or link to leak data | Answers cannot render images; only plain `http(s)` links are clickable, opened with `noopener noreferrer nofollow` | `web/app/components/Assistant.tsx` |
+| Owner should know a document looks hostile | Ingest-time scan flags instruction-like text and hidden characters (warning icon in the document list) | `ingest/safety.py` |
+
+**Measured** (`python -m eval.injection_test`, 9 attack documents x 3 trials, answer model `gpt-6-luna`: direct override,
+role spoofing, hidden characters, tag breakout, authority claim, text addressed to the AI, fake dialogue, stacked attack,
+image exfiltration): **0/27 attacks succeeded with the hardened prompt and 0/27 with the old plain-text prompt**, and the real
+fact was still answered in every case. So on this model the test cannot show that the hardened prompt helps: the model
+already resisted these payloads. The hardening is defence in depth for weaker models and future changes, and the
+non-prompt defences (sanitising, output rendering, scanning) do not depend on the model at all. The ingest scanner detected
+7 of 9 attacks (it missed the two polite, natural-language ones) and flagged 2 of 31 clean documents (an RFC sentence
+matching "reply/answer ... only/exactly" and an RFC containing a stray zero-width character), which is why it reports and does
+not block.
+
+**Not covered**: only one answer model and simple-to-moderate attacks were tested; multi-turn attacks and attacks aimed at
+the reranker's scores were not measured; an attacker who can upload documents can still put false *facts* in them (data
+poisoning is not the same as instruction injection); and the API has **no user authentication**, so anyone who can reach it can
+upload or delete documents. Put an authentication layer in front of any instance that holds private documents.
 
 ## Evaluation
 

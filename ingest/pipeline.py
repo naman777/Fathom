@@ -3,9 +3,10 @@ from pathlib import Path
 
 import json
 
-from core import db, llm
+from core import config, db, llm
 from ingest import safety
-from ingest.chunking import split_text
+from ingest.chunking import split_with_headings
+from ingest import context
 
 
 def read_file(path: Path) -> str:
@@ -16,10 +17,14 @@ def read_file(path: Path) -> str:
 
 
 def ingest_text(title: str, text: str, source: str | None = None, conn=None, s3_key: str | None = None) -> dict:
-    chunks = split_text(text)
+    pieces = split_with_headings(text)
+    chunks = [c for c, _ in pieces]
     flags = safety.scan(text)
     if not chunks:
         return {"title": title, "chunks": 0}
+    if config.CHUNK_HEADERS:
+        desc = context.describe(title, text)
+        chunks = [context.header(title, desc, h) + "\n" + c for c, h in pieces]
     vecs = llm.embed(chunks)
     own = conn is None
     conn = conn or db.connect()

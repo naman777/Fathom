@@ -2,16 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Assistant from "./components/Assistant";
-import { Check, Close, Download, File, Logo, Menu, Moon, Plus, Send, Sparkle, Stop, Sun, Trash, Upload } from "./components/icons";
+import { Alert, Close, Download, File, Logo, Menu, Moon, Paperclip, Plus, Send, Sparkle, Stop, Sun, Trash, Upload } from "./components/icons";
+import SiteNav from "./components/SiteNav";
+import UploadToasts from "./components/UploadToasts";
+import UploadZone from "./components/UploadZone";
 import SourcesPanel, { type PanelState } from "./components/SourcesPanel";
-import type { Conv, Doc, Msg } from "./components/types";
+import type { Conv, Doc, Job, Msg } from "./components/types";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const CONVS_KEY = "fathom-convs";
 
-type Job = { id: string; name: string; pct: number; stage: "queued" | "uploading" | "indexing" | "done" | "error"; msg?: string };
 const ALLOWED = [".txt", ".md", ".pdf"];
 
 export default function Home() {
@@ -34,6 +36,8 @@ export default function Home() {
   const [dark, setDark] = useState(true);
   const [sidebar, setSidebar] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [pageDrag, setPageDrag] = useState(false);
+  const picker = useRef<HTMLInputElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const abort = useRef<AbortController | null>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -169,10 +173,11 @@ export default function Home() {
           const data = JSON.parse(dataLine);
           if (ev === "trace")
             patchLast((m) => ({ ...m, trace: [...(m.trace || []), data], sources: data.type === "sources" ? data.chunks : m.sources }));
+          else if (ev === "meta") patchLast((m) => ({ ...m, traceId: data.trace_id }));
           else if (ev === "retrieval_done") patchLast((m) => ({ ...m, timing: { ...m.timing, retrieval: data.ms } }));
           else if (ev === "first_token") patchLast((m) => ({ ...m, timing: { ...m.timing, first: data.ms } }));
           else if (ev === "token") patchLast((m) => ({ ...m, content: m.content + data }));
-          else if (ev === "done") patchLast((m) => ({ ...m, streaming: false, timing: { ...m.timing, total: data.ms } }));
+          else if (ev === "done") patchLast((m) => ({ ...m, streaming: false, meta: data, timing: { ...m.timing, total: data.ms } }));
           else if (ev === "error") patchLast((m) => ({ ...m, streaming: false, error: { message: String(data) } }));
         }
       }
@@ -233,6 +238,35 @@ export default function Home() {
       if (ok) queue.current = queue.current.then(() => (patchJob(id, { stage: "uploading" }), sendFile(f, id)));
     }
   }
+
+  // Dropping files anywhere in the window uploads them.
+  const uploadRef = useRef(upload);
+  uploadRef.current = upload;
+  useEffect(() => {
+    const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types || []).includes("Files");
+    const over = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      setPageDrag(true);
+    };
+    const leave = (e: DragEvent) => {
+      if (!e.relatedTarget) setPageDrag(false);
+    };
+    const drop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      setPageDrag(false);
+      uploadRef.current(e.dataTransfer?.files ?? null);
+    };
+    window.addEventListener("dragover", over);
+    window.addEventListener("dragleave", leave);
+    window.addEventListener("drop", drop);
+    return () => {
+      window.removeEventListener("dragover", over);
+      window.removeEventListener("dragleave", leave);
+      window.removeEventListener("drop", drop);
+    };
+  }, []);
 
   async function removeDoc(id: number) {
     setConfirmId(null);
@@ -358,42 +392,6 @@ export default function Home() {
           </label>
         </div>
 
-        {jobs.length > 0 && (
-          <ul className="mx-3 mt-2 space-y-1.5">
-            {jobs.map((j) => (
-              <li key={j.id} className="fade-up rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-xs">
-                <div className="flex items-center gap-2">
-                  {j.stage === "done" ? (
-                    <Check width={14} height={14} className="shrink-0 text-success" />
-                  ) : j.stage === "error" ? (
-                    <Close width={14} height={14} className="shrink-0 text-danger" />
-                  ) : (
-                    <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
-                  )}
-                  <span className="flex-1 truncate text-fg-2" title={j.name}>{j.name}</span>
-                  {j.stage === "uploading" && <span className="tabular-nums text-muted">{j.pct}%</span>}
-                  {j.stage === "error" && (
-                    <button onClick={() => setJobs((js) => js.filter((x) => x.id !== j.id))} className="text-muted hover:text-fg" aria-label="Dismiss">
-                      <Close width={12} height={12} />
-                    </button>
-                  )}
-                </div>
-                {(j.stage === "uploading" || j.stage === "indexing") && (
-                  <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-surface-3">
-                    <div className={`h-full rounded-full bg-accent transition-all ${j.stage === "indexing" ? "shimmer w-full" : ""}`} style={j.stage === "uploading" ? { width: `${j.pct}%` } : undefined} />
-                  </div>
-                )}
-                <div className={`mt-1 ${j.stage === "error" ? "text-danger" : j.stage === "done" ? "text-success" : "text-muted"}`}>
-                  {j.stage === "queued" && "Waiting…"}
-                  {j.stage === "uploading" && "Uploading…"}
-                  {j.stage === "indexing" && "Reading, chunking & embedding — this can take a few seconds…"}
-                  {(j.stage === "done" || j.stage === "error") && j.msg}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-
         <ul className="mt-2 flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
           {!docsLoaded && [0, 1, 2, 3].map((i) => <li key={i} className="shimmer mx-1 my-1.5 h-8 rounded-lg" />)}
           {docsLoaded && docs.length === 0 && <li className="px-3 py-6 text-center text-xs text-muted">No documents yet.</li>}
@@ -418,6 +416,11 @@ export default function Home() {
                   </span>
                 ) : (
                   <>
+                    {d.flags && Object.keys(d.flags).length > 0 && (
+                      <span className="text-warning" title={`Contains instruction-like text (${Object.keys(d.flags).join(", ")}). Fathom treats document text as data, not instructions.`}>
+                        <Alert width={13} height={13} />
+                      </span>
+                    )}
                     <span className="text-[11px] tabular-nums text-muted" title={`${d.chunks} passages`}>{d.chunks}</span>
                     {d.stored && (
                       <button onClick={() => downloadDoc(d.id)} className="text-muted opacity-60 hover:text-fg group-hover:opacity-100" aria-label={`Download ${d.title}`} title="Download original">
@@ -450,10 +453,21 @@ export default function Home() {
             <button className="rounded-lg p-1.5 text-fg-2 hover:bg-surface-2 md:hidden" onClick={() => setSidebar(true)} aria-label="Open menu">
               <Menu width={18} height={18} />
             </button>
-            <div className="text-sm font-medium text-fg-2">{msgs.length ? "Conversation" : "New conversation"}</div>
+            <div className="hidden text-sm font-medium text-fg-2 lg:block">{msgs.length ? "Conversation" : "New conversation"}</div>
+            <SiteNav />
           </div>
           <div className="flex items-center gap-2">
-            <span className="hidden items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] text-muted sm:flex">
+            <button
+              onClick={() => picker.current?.click()}
+              className="flex items-center gap-1.5 rounded-lg bg-accent-strong px-3 py-2 text-[13px] font-medium text-white shadow-sm transition hover:brightness-110"
+              title="Upload documents (.txt, .md, .pdf) — or drop files anywhere"
+            >
+              <Upload width={15} height={15} />
+              <span className="hidden sm:inline">Upload documents</span>
+              <span className="sm:hidden">Upload</span>
+            </button>
+            <input ref={picker} type="file" multiple accept=".txt,.md,.pdf" className="hidden" onChange={(e) => (upload(e.target.files), (e.target.value = ""))} />
+            <span className="hidden items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] text-muted xl:flex">
               <span className={`h-1.5 w-1.5 rounded-full ${notice?.includes("API") ? "bg-danger" : "bg-success"}`} />
               Hybrid search · {rerank ? "rerank on" : "rerank off"}
             </span>
@@ -483,8 +497,10 @@ export default function Home() {
                 <p className="mx-auto mt-2 max-w-md text-sm text-muted">
                   Ask across your documents. Answers are grounded in retrieved passages and cite their sources.
                 </p>
-                <div className="mx-auto mt-8 grid max-w-xl gap-2.5">
-                  {suggestions.length === 0 && docsLoaded && <p className="text-sm text-muted">Upload a document to get started.</p>}
+                <div className="mt-8">
+                  <UploadZone onFiles={upload} busy={uploading} hasDocs={docs.length > 0} />
+                </div>
+                <div className="mx-auto mt-6 grid max-w-xl gap-2.5">
                   {suggestions.map((s) => (
                     <button
                       key={s}
@@ -526,6 +542,15 @@ export default function Home() {
             className="mx-auto max-w-3xl"
           >
             <div className="flex items-end gap-2 rounded-2xl border border-border-strong bg-surface p-2 shadow-[var(--shadow)] transition focus-within:border-accent">
+              <button
+                type="button"
+                onClick={() => picker.current?.click()}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted transition hover:bg-surface-2 hover:text-fg"
+                aria-label="Upload documents"
+                title="Upload documents"
+              >
+                <Paperclip width={17} height={17} />
+              </button>
               <textarea
                 ref={taRef}
                 rows={1}
@@ -559,6 +584,17 @@ export default function Home() {
           </form>
         </div>
       </main>
+
+      {pageDrag && (
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 rounded-3xl border-2 border-dashed border-accent bg-surface px-14 py-12 text-center shadow-[var(--shadow)]">
+            <Upload width={34} height={34} className="text-accent" />
+            <div className="text-lg font-semibold">Drop to upload</div>
+            <div className="text-sm text-muted">.txt · .md · .pdf</div>
+          </div>
+        </div>
+      )}
+      <UploadToasts jobs={jobs} onDismiss={(id) => setJobs((js) => js.filter((j) => j.id !== id))} />
 
       {panel && (
         <SourcesPanel

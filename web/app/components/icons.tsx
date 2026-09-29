@@ -44,3 +44,5 @@ export const Branch = (p: SVGProps<SVGSVGElement>) => <svg {...base(p)}><circle 
 export const Eye = (p: SVGProps<SVGSVGElement>) => <svg {...base(p)}><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>;
 export const Menu = (p: SVGProps<SVGSVGElement>) => <svg {...base(p)}><path d="M4 7h16M4 12h16M4 17h16" /></svg>;
 export const Alert = (p: SVGProps<SVGSVGElement>) => <svg {...base(p)}><path d="M12 9v4M12 17h.01" /><path d="M10.3 3.9L2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /></svg>;
+
+export const Paperclip = (p: SVGProps<SVGSVGElement>) => <svg {...base(p)}><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 01-7.8-7.8l8.6-8.6a3.7 3.7 0 015.2 5.2l-8.6 8.6a1.8 1.8 0 01-2.6-2.6l7.9-7.9" /></svg>;

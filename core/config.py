@@ -46,9 +46,17 @@ try:
     MODEL_PRICES.update({k: [float(v[0]), float(v[1])] for k, v in json.loads(os.environ.get("MODEL_PRICES", "{}")).items()})
 except (ValueError, TypeError, IndexError, AttributeError):
     pass  # a malformed override must not stop the app; those models simply stay unpriced
+# Lexical retrieval mode: or | or_norm | websearch | trigram (see retrieval/lexical.py)
+LEXICAL_MODE = os.environ.get("LEXICAL_MODE", "or")
 # Chunking (characters). Changing these only affects documents ingested afterwards.
 CHUNK_TARGET = int(os.environ.get("CHUNK_TARGET", "900"))
 CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", "150"))
+# Store a contextual header ("[title - description > section]") as the first line of every new chunk (ingest/context.py).
+CHUNK_HEADERS = os.environ.get("CHUNK_HEADERS", "false").lower() == "true"
+# Parent-document expansion: give the answer model each hit plus this many neighbouring chunks per side (0 = off).
+NEIGHBOR_EXPAND = int(os.environ.get("NEIGHBOR_EXPAND", "0"))
+# Extra follow-up searches the agent may make after reflecting on its evidence.
+MAX_FOLLOWUPS = int(os.environ.get("MAX_FOLLOWUPS", "1"))
 
 
 def _int(name: str, default: int) -> int:
