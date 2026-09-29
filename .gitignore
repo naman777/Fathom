@@ -6,3 +6,6 @@ node_modules/
 results/*.tmp
 data/_upload/
 *.log
+
+
+/deploy
