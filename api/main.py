@@ -2,7 +2,9 @@ import json
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+import hmac
+
+from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -15,7 +17,13 @@ from ingest.pipeline import ingest_text, read_file
 
 app = FastAPI(title="Fathom")
 app.middleware("http")(rate_limit_middleware)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=config.CORS_ORIGINS, allow_methods=["*"], allow_headers=["*"])
+
+
+def require_admin(x_admin_token: str = Header(default="")):
+    """Protects mutating document endpoints when ADMIN_TOKEN is configured."""
+    if config.ADMIN_TOKEN and not hmac.compare_digest(x_admin_token, config.ADMIN_TOKEN):
+        raise HTTPException(401, "Admin token required to modify documents")
 
 
 class ChatReq(BaseModel):
@@ -45,14 +53,14 @@ def documents():
     return [{"id": r[0], "title": r[1], "source": r[2], "chunks": r[3]} for r in rows]
 
 
-@app.delete("/api/documents/{doc_id}")
+@app.delete("/api/documents/{doc_id}", dependencies=[Depends(require_admin)])
 def delete_document(doc_id: int):
     with db.connect() as c:
         c.execute("DELETE FROM documents WHERE id=%s", (doc_id,))
     return {"ok": True}
 
 
-@app.post("/api/documents")
+@app.post("/api/documents", dependencies=[Depends(require_admin)])
 async def upload(file: UploadFile = File(...)):
     name = Path(file.filename or "upload.txt")
     if name.suffix.lower() not in {".txt", ".md", ".pdf"}:

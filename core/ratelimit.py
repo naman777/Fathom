@@ -5,6 +5,7 @@ Configured from .env (all optional):
   RATE_LIMIT_CHAT_PER_MINUTE=6        # /api/chat calls per IP per minute
   RATE_LIMIT_CHAT_PER_DAY=100         # /api/chat calls per IP per 24h (the real bill cap)
   RATE_LIMIT_UPLOAD_PER_HOUR=10       # document uploads per IP per hour
+  RATE_LIMIT_DELETE_PER_HOUR=20       # document deletions per IP per hour
   RATE_LIMIT_GLOBAL_PER_MINUTE=120    # any /api request per IP per minute
   MAX_QUESTION_CHARS=1000
   MAX_UPLOAD_MB=10
@@ -28,6 +29,7 @@ RULES = [
     ("chat-min", "/api/chat", "POST", "CHAT_PER_MINUTE", 60),
     ("chat-day", "/api/chat", "POST", "CHAT_PER_DAY", 86400),
     ("upload-hour", "/api/documents", "POST", "UPLOAD_PER_HOUR", 3600),
+    ("delete-hour", "/api/documents", "DELETE", "DELETE_PER_HOUR", 3600),
 ]
 
 
@@ -76,6 +78,13 @@ def client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def _cors_headers(request: Request) -> dict:
+    origin = request.headers.get("origin", "")
+    if "*" in config.CORS_ORIGINS:
+        return {"Access-Control-Allow-Origin": "*"}
+    return {"Access-Control-Allow-Origin": origin, "Vary": "Origin"} if origin in config.CORS_ORIGINS else {}
+
+
 async def rate_limit_middleware(request: Request, call_next):
     if config.RATE_LIMIT_ENABLED and request.method != "OPTIONS":
         ok, retry, bucket = limiter.check(client_ip(request), request.url.path, request.method)
@@ -84,5 +93,5 @@ async def rate_limit_middleware(request: Request, call_next):
                    if bucket == "chat-day" else "Too many requests. Please slow down.")
             return JSONResponse(
                 {"detail": msg, "retry_after": retry, "limit": bucket}, status_code=429,
-                headers={"Retry-After": str(retry), "Access-Control-Allow-Origin": "*"})
+                headers={"Retry-After": str(retry), **_cors_headers(request)})
     return await call_next(request)
