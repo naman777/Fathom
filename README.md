@@ -71,7 +71,7 @@ One Postgres database holds both indexes:
 - `lexical.py`: Postgres full-text search (`ts_rank_cd`) with OR semantics so long natural-language questions still match.
 - `dense.py`: cosine similarity over the HNSW index; query embeddings are cached in-process so repeat queries are free.
 - `fuse.py`: Reciprocal Rank Fusion (`k=60`) over the two ranked lists of 20 candidates each.
-- `rerank.py`: the top 8 fused candidates are scored 0-9 in **one** short LLM call (default `gpt-4.1-mini`); the best `k`
+- `rerank.py`: the top 20 fused candidates are scored 0-9 in **one** short LLM call (default `gpt-6-luna`); the best `k`
   are kept. `rerank_local.py` is an optional API-free alternative (see [Configuration](#configuration)).
 - `search.py`: `hybrid(...)` ties it together and also exposes `lexical`-only and `dense`-only modes for evaluation. CLI:
   `python -m retrieval.search "your question" --rerank`.
@@ -103,7 +103,7 @@ renders the trace live and appends tokens as they arrive; timing (retrieval, fir
 | API | Python 3.12, FastAPI, Uvicorn, Server-Sent Events |
 | Database | Postgres with `pgvector` (developed against Neon); built-in full-text search for lexical retrieval |
 | Fusion / rerank | Reciprocal Rank Fusion; LLM listwise reranker (default) or local ONNX cross-encoder (`fastembed`, optional) |
-| LLMs | OpenAI: answers `gpt-6-luna`, rerank/planner `gpt-4.1-mini`, embeddings `text-embedding-3-small` |
+| LLMs | OpenAI: answers, rerank and planner `gpt-6-luna`, embeddings `text-embedding-3-small` |
 | Eval | Python scripts, LLM-generated corpus and golden set, LLM judge for accuracy and groundedness |
 | Tests | pytest (FastAPI `TestClient`) |
 | Packaging | `run.py` launcher; Dockerfiles and `docker-compose.yml` (untested) |
@@ -178,8 +178,8 @@ Everything is read from `.env` (see `.env.example`). Only the first two are requ
 | `DB_URL` | required | Postgres connection string (needs the `vector` extension) |
 | `CHAT_MODEL` | `gpt-6-luna` | answer model (also used by the eval judge) |
 | `REASONING_EFFORT` | `low` | for gpt-5/6/o-series models |
-| `RERANK_MODEL` | `gpt-4.1-mini` | LLM reranker |
-| `PLANNER_MODEL` | `gpt-4.1-mini` | query decomposition and reflection |
+| `RERANK_MODEL` | `gpt-6-luna` | LLM reranker |
+| `PLANNER_MODEL` | `gpt-6-luna` | query decomposition and reflection |
 | `EMBED_MODEL` | `text-embedding-3-small` | embeddings (schema is fixed at 1536 dimensions) |
 | `RERANKER` | `llm` | `llm` or `local` (ONNX cross-encoder via `pip install fastembed`; no API call) |
 | `LOCAL_RERANK_MODEL`, `LOCAL_RERANK_CANDIDATES` | MiniLM-L-12, `20` | settings for the local reranker |
@@ -247,6 +247,12 @@ Metrics: **Recall@K** (share of needed evidence quotes retrieved), **Full-hit@K*
 **Precision@K**, **MRR**, **answer accuracy**, **unsupported-claim rate**, and **latency p50/p95** (retrieval, first token,
 end to end). Full output: [`eval/results/results.md`](eval/results/results.md) and `results.json`.
 
+**Reranker/planner model.** The results below were measured with `gpt-4.1-mini` as reranker and planner; the default is now
+`gpt-6-luna` (the cheapest model available to this project). One retrieval-only run on the synthetic set with `gpt-6-luna`
+as reranker (20 candidates): full-hit@5 0.93, MRR 0.91 (vs 0.89 / 0.86 with `gpt-4.1-mini`), but retrieval latency p50 / p95
+3.0 s / 4.8 s (vs 1.7 s / 2.2 s), because it is a reasoning model. Quality is at least as good; latency is the price. Set
+`RERANK_MODEL=gpt-4.1-mini` to trade back. The RFC and agent-loop numbers have not been re-run on `gpt-6-luna`.
+
 ### Results on the synthetic corpus (K = 5, 72 questions, mean ± sd over 3 runs)
 
 `python -m eval.run_eval --runs 3` repeats every LLM-dependent stage and reports mean ± sample standard deviation.
@@ -257,7 +263,7 @@ Lexical, dense and hybrid are deterministic for a fixed index, so they run once 
 | lexical (Postgres FTS) | 0.91 | 0.85 | 0.79 | 197 / 276 |
 | dense (pgvector) | 0.87 | 0.82 | 0.74 | 917 / 1792 |
 | hybrid (RRF) | 0.88 | 0.81 | 0.82 | 565 / 691 |
-| hybrid + rerank (`gpt-4.1-mini`, 20 candidates) | 0.93 ± 0.01 | 0.89 ± 0.02 | 0.86 ± 0.01 | 1744 / 2174 |
+| hybrid + rerank (`gpt-4.1-mini` reranker, 20 candidates)* | 0.93 ± 0.01 | 0.89 ± 0.02 | 0.86 ± 0.01 | 1744 / 2174 |
 | full pipeline, no agent | 0.93 ± 0.01 | 0.90 ± 0.01 | 0.87 ± 0.00 | 1737 / 2153 |
 | full pipeline + agent loop* | 0.94 ± 0.01 | 0.90 ± 0.02 | 0.86 ± 0.01 | 1852 / 8497 |
 
@@ -321,7 +327,7 @@ unchanged. Worth re-testing on a larger labelled set. `python -m eval.tune_reran
 ### Keeping evaluation cheap
 
 Every LLM call is counted by model (`core/llm.py`) and each eval writes a **Token usage** table, so cost is visible before you
-scale a run. Measured on 12 synthetic questions, 1 run: the reranker (`gpt-4.1-mini`, 20 candidates) uses about 3.5k prompt
+scale a run. Measured on 12 synthetic questions, 1 run: the reranker (20 candidates) uses about 3.5k prompt
 tokens per question; each answered question costs 2 `gpt-6-luna` calls (answer + judge, about 1k prompt tokens each), and the
 agent loop adds planner and reflector calls on top. Ways to spend less:
 
@@ -329,8 +335,8 @@ agent loop adds planner and reflector calls on top. Ways to spend less:
 |---|---|---|
 | Tune retrieval (chunking, pool size, fusion) | `python -m eval.run_eval --skip-e2e` or `python -m eval.tune_rerank` | small-model rerank only; no answers, no judge |
 | Re-run one stage | `--stages rerank,agent` (choices: lexical, dense, hybrid, rerank, noagent, agent) | only those stages |
-| Cheaper grading during development | `--judge-model gpt-4.1-mini` | judge is half of the answered-question spend; changes the accuracy baseline, so do not compare across judges |
-| Cheaper answers during development | `--answer-model gpt-4.1-mini` | also affects the judge unless `--judge-model` is set |
+| Skip grading | `--skip-e2e` | the judge is half of the answered-question spend; accuracy needs it, retrieval metrics do not |
+| Different answer or judge model | `--answer-model M` / `--judge-model M` | changes the accuracy baseline, so do not compare accuracy across different models; `--answer-model` also switches the judge unless `--judge-model` is set |
 | Fewer repeats | `--runs 2` | error bars get wider |
 
 The no-agent stage reuses the previous stage's retrieval and rerank result (same chunks, paired by run), so it makes no

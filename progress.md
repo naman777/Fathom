@@ -38,6 +38,6 @@
 - No tests for the agent loop, LLM wrapper or frontend; no observability; ingestion is synchronous.
 
 ## Notes / decisions
-- OpenAI used instead of Claude (only key provided). Answers on gpt-6-luna (reasoning_effort=low); rerank/plan on gpt-4.1-mini.
+- OpenAI used instead of Claude (only key provided). Answers, rerank and plan on gpt-6-luna (reasoning_effort=low); rerank/plan were gpt-4.1-mini until the switch (set RERANK_MODEL/PLANNER_MODEL to go back).
 - Aiven DB unreachable; user supplied a fresh Neon URL, reset once.
 - Secrets are only in `.env` (git-ignored).
