@@ -71,3 +71,13 @@ def summarize(rows: list[dict]) -> dict:
         out["e2e_ms_p50"] = pct([r["e2e_ms"] for r in gen], 50)
         out["e2e_ms_p95"] = pct([r["e2e_ms"] for r in gen], 95)
     return out
+
+
+def aggregate(summaries: list[dict]) -> dict:
+    """Combine per-run summaries into {metric: {mean, sd, min, max, n}}. sd is the sample standard deviation (0 for n=1)."""
+    out = {}
+    for key in summaries[0]:
+        xs = [s[key] for s in summaries if key in s]
+        out[key] = {"mean": statistics.mean(xs), "sd": statistics.stdev(xs) if len(xs) > 1 else 0.0,
+                    "min": min(xs), "max": max(xs), "n": len(xs)}
+    return out

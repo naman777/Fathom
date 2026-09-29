@@ -118,7 +118,8 @@ retrieval/           lexical.py, dense.py, fuse.py, rerank.py, rerank_local.py, 
 agent/               loop.py (plan -> parallel search -> reflect -> follow-up)
 generation/          prompt.py (grounded prompts, blocking and streaming)
 api/                 main.py (FastAPI: chat SSE, documents CRUD, health)
-eval/                build_corpus.py, golden_set.json, scorer.py, run_eval.py, bench_rerank.py, results/
+eval/                build_corpus.py, golden_set.json, scorer.py, run_eval.py, bench_rerank.py, real_corpus.py,
+                     build_real_golden.py, real_golden_set.json, results/
 tests/               test_api_protection.py, test_retrieval_logic.py
 web/                 Next.js app (app/page.tsx, app/components/{Assistant,icons,types})
 data/corpus/         20 generated fictional documents used for the demo and evaluation
@@ -243,25 +244,60 @@ Metrics: **Recall@K** (share of needed evidence quotes retrieved), **Full-hit@K*
 **Precision@K**, **MRR**, **answer accuracy**, **unsupported-claim rate**, and **latency p50/p95** (retrieval, first token,
 end to end). Full output: [`eval/results/results.md`](eval/results/results.md) and `results.json`.
 
-### Results (K = 3, 72 questions, default configuration)
+### Results on the synthetic corpus (K = 5, 72 questions, mean ± sd over 3 runs)
 
-| Stage | Recall@3 | Full-hit@3 | MRR | Retrieval p50 / p95 (ms) |
+`python -m eval.run_eval --runs 3` repeats every LLM-dependent stage and reports mean ± sample standard deviation.
+Lexical, dense and hybrid are deterministic for a fixed index, so they run once (no sd).
+
+| Stage | Recall@5 | Full-hit@5 | MRR | Retrieval p50 / p95 (ms) |
 |---|---|---|---|---|
-| lexical (Postgres FTS) | 0.83 | 0.75 | 0.77 | 168 / 198 |
-| dense (pgvector) | 0.78 | 0.71 | 0.74 | 770 / 1116 |
-| hybrid (RRF) | 0.85 | 0.78 | 0.81 | 437 / 671 |
-| hybrid + rerank (`gpt-4.1-mini`) | 0.91 | 0.86 | 0.87 | 1343 / 1670 |
-| full pipeline + agent loop* | 0.94 | 0.90 | 0.86 | 1405 / 7744 |
+| lexical (Postgres FTS) | 0.91 | 0.85 | 0.79 | 206 / 309 |
+| dense (pgvector) | 0.87 | 0.82 | 0.74 | 877 / 1311 |
+| hybrid (RRF) | 0.88 | 0.81 | 0.82 | 464 / 681 |
+| hybrid + rerank (`gpt-4.1-mini`) | 0.94 ± 0.01 | 0.89 ± 0.01 | 0.87 ± 0.00 | 1483 / 1939 |
+| full pipeline, no agent | 0.94 | 0.89 | 0.87 ± 0.00 | 1559 / 2004 |
+| full pipeline + agent loop* | 0.94 ± 0.00 | 0.91 ± 0.01 | 0.86 ± 0.01 | 1527 / 7619 |
 
 | Generation | Answer accuracy | Unsupported-claim rate | First token p50 / p95 (ms) | End-to-end p50 / p95 (ms) |
 |---|---|---|---|---|
-| no agent | 0.83 | 0.026 | 2274 / 3062 | 2544 / 3731 |
-| with agent loop | 0.92 | 0.014 | 2258 / 8631 | 2517 / 9496 |
+| no agent | 0.87 ± 0.02 | 0.006 ± 0.003 | 2471 / 3336 | 2817 / 4116 |
+| with agent loop | 0.89 ± 0.01 | 0.014 ± 0.002 | 2554 / 8902 | 2798 / 9902 |
 
-**Multi-hop questions only (Full-hit@3):** hybrid 0.21, hybrid + rerank 0.47, agent loop **0.63**.
+**Multi-hop questions only (Full-hit@5):** hybrid 0.32, hybrid + rerank 0.58 ± 0.05, agent loop **0.65 ± 0.03**.
 
-Takeaways: hybrid beats either retriever alone; reranking gives the largest single retrieval gain; the agent loop is what
-makes multi-part questions work (and cuts unsupported claims), at the cost of tail latency.
+What holds up once run-to-run spread is counted: reranking is a real gain over hybrid (0.81 to 0.89 full-hit), and the agent
+loop's gain on multi-hop questions is real but modest on this corpus. What does **not** hold up: the agent loop's overall
+answer-accuracy lift (0.87 vs 0.89 is about one sd apart) and the earlier claim that it lowers unsupported claims (it
+raises them, 0.6% to 1.4%). Retrieval-only stages other than rerank have no sd because they are deterministic, so the
+lexical/dense/hybrid ordering is exact for this index but reflects only these 72 questions.
+
+### Results on a real corpus (11 IETF RFCs, 20 hand-labelled questions, K = 5, 5 runs)
+
+`python -m eval.real_corpus --ingest`, then `python -m eval.run_eval --golden real_golden_set.json --runs 5 --out results_real_rfc`
+(remove the RFCs afterwards with `python -m eval.real_corpus --remove`). The corpus is RFC 793, 1035, 3986, 5321, 6265, 6455,
+6749, 7233, 7519, 8446 and 9000 (about 2,600 chunks, cleaned of page furniture, indexed alongside the synthetic documents as
+distractors). The 20 questions (15 single-passage, 5 two-part) are in `eval/real_golden_set.json`, built and verified by
+`eval/build_real_golden.py`: each has a verbatim evidence sentence from the RFC text, and questions are phrased differently
+from the source. Full output: [`eval/results/results_real_rfc.md`](eval/results/results_real_rfc.md).
+
+| Stage | Recall@5 | Full-hit@5 | MRR |
+|---|---|---|---|
+| lexical (Postgres FTS) | 0.38 | 0.30 | 0.26 |
+| dense (pgvector) | 0.53 | 0.45 | 0.53 |
+| hybrid (RRF) | 0.50 | 0.40 | 0.42 |
+| hybrid + rerank | 0.57 ± 0.01 | 0.45 | 0.64 ± 0.01 |
+| full pipeline + agent loop | 0.65 ± 0.01 | 0.59 ± 0.02 | 0.62 ± 0.02 |
+
+Answer accuracy: 0.80 ± 0.05 without the agent, 0.88 ± 0.03 with it. Multi-part questions (5) full-hit: 0.00 for every
+non-agent stage, 0.56 ± 0.09 with the agent loop.
+
+The synthetic numbers do **not** transfer: full-hit falls from 0.89 to 0.45 for hybrid + rerank, and lexical search, the
+strongest single retriever on synthetic text, is the weakest here (0.30) because RFC prose repeats the same terms across
+hundreds of chunks. The agent loop's multi-part advantage does hold up, and is larger here. Failures were inspected: no
+quote straddles a chunk boundary, so the misses are retrieval misses. Typically the right RFC and neighbouring chunks come
+back but not the exact chunk holding a short definition (for example the JWT `iss` claim or the TLS 2^14 record limit).
+Scoring counts a chunk as a hit only if it contains the labelled quote, so a different passage that also answers the
+question (the TCP MSL question returned "lifetime is two minutes") counts as a miss; treat retrieval numbers as a lower bound.
 
 ### Model and reranker comparisons
 
@@ -292,10 +328,14 @@ matters most in RAG. Earlier runs on `gpt-4o-mini` and all-`gpt-6-luna` are kept
   4 queries concurrently (which inflates its numbers).
 - *Agent rows retrieve up to 8 chunks (merged sub-queries) and are scored over all of them, so they are not strictly
   K=3-comparable to the retrieval-only rows.
-- **The data is synthetic**: corpus and questions are LLM-generated, and the judge is the same model family as the generator.
-  Read the numbers as *relative* comparisons between stages, not absolute quality on real documents.
-- **Small and noisy**: single runs of 72 questions; the same reranker configuration scored 0.86-0.90 full-hit across runs, so
-  differences of a few points are within noise.
+- **The synthetic data is synthetic**: corpus and questions are LLM-generated, and the judge is the same model family as the
+  generator. The real-corpus run shows the absolute numbers do not transfer (see above); use the synthetic set for relative
+  comparisons only.
+- **The real-corpus set is small and labelled by an LLM**: 20 questions, written by Claude from verbatim RFC sentences, not by
+  an independent human, and the answer judge is still the same model family. Lean on the judge-free retrieval metrics.
+  With n = 20, one question is 5 points of full-hit, so the sd across runs understates the sampling uncertainty.
+- **Noise**: LLM-dependent stages are repeated (3 runs synthetic, 5 real). The remaining older tables below (reranker and
+  answer-model comparisons) are single runs from before this change; their gaps of a few points are within noise.
 
 ## Tests
 
@@ -303,10 +343,12 @@ matters most in RAG. Earlier runs on `gpt-4o-mini` and all-`gpt-6-luna` are kept
 python -m pytest -q        # or: python run.py --test
 ```
 
-19 tests, none of which call OpenAI: rate limiter (per-minute, daily, upload, delete, per-IP isolation, `X-Forwarded-For`
+None of the tests call OpenAI. Agent loop (`tests/test_agent_loop.py`, LLM and search stubbed): plan, parallel search,
+reflect and the single follow-up, dedupe (first hit wins), the 8-chunk cap (best by rerank score, else fused score), plan
+limits and fallbacks, history handling and the multi-part heuristic. Eval aggregation (mean, sd, noise flag). Rate limiter (per-minute, daily, upload, delete, per-IP isolation, `X-Forwarded-For`
 handling, disabled and zero-disabled limits, `Retry-After`), input caps (question length, upload size, file type), admin
 token enforcement, CORS allow/deny (including on 429 responses), and unit tests for chunking, RRF fusion, lexical term
-handling and the scorer. There are **no** tests for the agent loop, the LLM calls, or the frontend.
+handling and the scorer. There are **no** tests for the LLM calls themselves or the frontend.
 
 ## Status: done and pending
 

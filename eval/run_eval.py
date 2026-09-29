@@ -57,55 +57,87 @@ def main():
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--k", type=int, default=5)
     ap.add_argument("--skip-e2e", action="store_true")
+    ap.add_argument("--runs", type=int, default=3, help="repeat each LLM-dependent stage N times and report mean +/- sd")
+    ap.add_argument("--golden", default="golden_set.json", help="file in eval/ (e.g. real_golden_set.json)")
+    ap.add_argument("--out", default="results", help="output basename in eval/results/")
     a = ap.parse_args()
-    golden = json.loads((config.ROOT / "eval" / "golden_set.json").read_text(encoding="utf-8"))
+    golden = json.loads((config.ROOT / "eval" / a.golden).read_text(encoding="utf-8"))
     if a.limit:
         golden = golden[: a.limit]
+    # (runner, repeatable): lexical/dense/hybrid are deterministic for a fixed index, so one run is enough;
+    # anything that calls an LLM (rerank, planner, reflector, answerer, judge) is repeated --runs times.
     stages = {
-        "lexical (BM25-style FTS)": lambda: retrieval_stage(golden, a.k, mode="lexical", rerank=False),
-        "dense (pgvector)": lambda: retrieval_stage(golden, a.k, mode="dense", rerank=False),
-        "hybrid (RRF)": lambda: retrieval_stage(golden, a.k, mode="hybrid", rerank=False),
-        "hybrid + rerank": lambda: retrieval_stage(golden, a.k, mode="hybrid", rerank=True),
+        "lexical (BM25-style FTS)": (lambda: retrieval_stage(golden, a.k, mode="lexical", rerank=False), False),
+        "dense (pgvector)": (lambda: retrieval_stage(golden, a.k, mode="dense", rerank=False), False),
+        "hybrid (RRF)": (lambda: retrieval_stage(golden, a.k, mode="hybrid", rerank=False), False),
+        "hybrid + rerank": (lambda: retrieval_stage(golden, a.k, mode="hybrid", rerank=True), True),
     }
     if not a.skip_e2e:
-        stages["full pipeline, no agent"] = lambda: e2e_stage(golden, a.k, False)
-        stages["full pipeline + agent loop"] = lambda: e2e_stage(golden, a.k, True)
+        stages["full pipeline, no agent"] = (lambda: e2e_stage(golden, a.k, False), True)
+        stages["full pipeline + agent loop"] = (lambda: e2e_stage(golden, a.k, True), True)
     results = {}
-    for name, fn in stages.items():
-        print("running:", name, flush=True)
-        rows = fn()
-        results[name] = {"summary": scorer.summarize(rows),
-                         "by_type": {t: scorer.summarize([r for r, g in zip(rows, golden) if g["type"] == t])
-                                     for t in ("single", "multi") if any(g["type"] == t for g in golden)},
-                         "rows": rows}
-        print({k: round(v, 3) for k, v in results[name]["summary"].items()}, flush=True)
+    types = sorted({g.get("type", "single") for g in golden})
+    for name, (fn, repeat) in stages.items():
+        n_runs = a.runs if repeat else 1
+        runs = []
+        for i in range(n_runs):
+            print(f"running: {name} (run {i + 1}/{n_runs})", flush=True)
+            runs.append(fn())
+        results[name] = {
+            "summary": scorer.aggregate([scorer.summarize(rows) for rows in runs]),
+            "runs": [scorer.summarize(rows) for rows in runs],
+            "by_type": {t: scorer.aggregate([scorer.summarize([r for r, g in zip(rows, golden) if g.get("type", "single") == t]) for rows in runs])
+                        for t in types},
+            "rows": runs[-1]}
+        print({k: f"{v['mean']:.3f}+/-{v['sd']:.3f}" for k, v in results[name]["summary"].items()}, flush=True)
     RES.mkdir(parents=True, exist_ok=True)
-    (RES / "results.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
-    (RES / "results.md").write_text(to_markdown(results, a.k, len(golden)), encoding="utf-8")
-    print("wrote", RES / "results.md")
+    (RES / f"{a.out}.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
+    (RES / f"{a.out}.md").write_text(to_markdown(results, a.k, len(golden)), encoding="utf-8")
+    print("wrote", RES / f"{a.out}.md")
+
+
+def pm(m, digits=2):
+    """mean ± sd, or just the mean when the metric never varied."""
+    return f"{m['mean']:.{digits}f}" + (f" ± {m['sd']:.{digits}f}" if m["sd"] else "")
+
+
+def noise_flag(prev, cur):
+    """'within noise' when the change in mean is no bigger than the larger of the two run-to-run sds."""
+    if prev["n"] < 2 or cur["n"] < 2:
+        return "n/a (no sd from 1 run)"
+    gap = abs(cur["mean"] - prev["mean"])
+    return "within noise" if gap <= max(prev["sd"], cur["sd"]) else ("up" if cur["mean"] > prev["mean"] else "down")
 
 
 def to_markdown(results, k, n):
-    lines = [f"# Evaluation results ({n} questions, K={k})", "",
-             "| Stage | Recall@K | Full-hit@K | Precision@K | MRR | Retr. p50 ms | Retr. p95 ms |", "|---|---|---|---|---|---|---|"]
+    runs = max(len(r["runs"]) for r in results.values())
+    lines = [f"# Evaluation results ({n} questions, K={k}, up to {runs} runs)", "",
+             "Values are mean ± sample standard deviation over runs; no ± means the metric never varied (deterministic "
+             "stages run once). The last column compares full-hit@K with the previous row: a change no larger than the "
+             "larger sd is *within noise*.", "",
+             "| Stage | Runs | Recall@K | Full-hit@K | Precision@K | MRR | Retr. p50 ms | Retr. p95 ms | Δ full-hit vs prev |",
+             "|---|---|---|---|---|---|---|---|---|"]
+    prev = None
     for name, r in results.items():
         s = r["summary"]
-        lines.append(f"| {name} | {s['recall@k']:.2f} | {s['full_hit@k']:.2f} | {s['precision@k']:.2f} | "
-                     f"{s['mrr']:.2f} | {s['retrieval_ms_p50']:.0f} | {s['retrieval_ms_p95']:.0f} |")
+        delta = noise_flag(prev, s["full_hit@k"]) if prev else ""
+        lines.append(f"| {name} | {len(r['runs'])} | {pm(s['recall@k'])} | {pm(s['full_hit@k'])} | {pm(s['precision@k'])} | "
+                     f"{pm(s['mrr'])} | {s['retrieval_ms_p50']['mean']:.0f} | {s['retrieval_ms_p95']['mean']:.0f} | {delta} |")
+        prev = s["full_hit@k"]
     gen = {n: r["summary"] for n, r in results.items() if "answer_accuracy" in r["summary"]}
     if gen:
         lines += ["", "## Generation", "",
                   "| Pipeline | Answer accuracy | Unsupported-claim rate | First token p50/p95 ms | End-to-end p50/p95 ms |",
                   "|---|---|---|---|---|"]
         for n, s in gen.items():
-            lines.append(f"| {n} | {s['answer_accuracy']:.2f} | {s['unsupported_claim_rate']:.3f} | "
-                         f"{s['first_token_ms_p50']:.0f} / {s['first_token_ms_p95']:.0f} | "
-                         f"{s['e2e_ms_p50']:.0f} / {s['e2e_ms_p95']:.0f} |")
+            lines.append(f"| {n} | {pm(s['answer_accuracy'])} | {pm(s['unsupported_claim_rate'], 3)} | "
+                         f"{s['first_token_ms_p50']['mean']:.0f} / {s['first_token_ms_p95']['mean']:.0f} | "
+                         f"{s['e2e_ms_p50']['mean']:.0f} / {s['e2e_ms_p95']['mean']:.0f} |")
     multi = {n: r["by_type"].get("multi") for n, r in results.items() if r["by_type"].get("multi")}
     if multi:
         lines += ["", "## Multi-hop questions only", "", "| Stage | Recall@K | Full-hit@K |", "|---|---|---|"]
         for n, s in multi.items():
-            lines.append(f"| {n} | {s['recall@k']:.2f} | {s['full_hit@k']:.2f} |")
+            lines.append(f"| {n} | {pm(s['recall@k'])} | {pm(s['full_hit@k'])} |")
     return "\n".join(lines) + "\n"
 
 
