@@ -58,5 +58,10 @@ TRUST_PROXY = _bool("TRUST_PROXY", False)
 RL_DELETE_PER_HOUR = _int("RATE_LIMIT_DELETE_PER_HOUR", 20)
 # Comma-separated allowed browser origins, or "*" (dev only). E.g. https://fathom.example.com
 CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",") if o.strip()]
-# If set, uploading and deleting documents requires this token (header X-Admin-Token). Chat stays public.
-ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
+
+# --- original-file storage on S3 (disabled when AWS_S3_BUCKET is empty) ---
+# Credentials come from AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY (read by boto3 from the environment).
+AWS_S3_BUCKET = os.environ.get("AWS_S3_BUCKET", "").strip()
+AWS_REGION = os.environ.get("AWS_REGION", "").strip() or None
+S3_PREFIX = os.environ.get("S3_PREFIX", "documents").strip("/")
+S3_URL_EXPIRES = _int("S3_URL_EXPIRES_SECONDS", 300)

@@ -2,14 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Assistant from "./components/Assistant";
-import { Close, File, Logo, Menu, Moon, Plus, Send, Sparkle, Stop, Sun, Trash, Upload } from "./components/icons";
+import { Check, Close, Download, File, Logo, Menu, Moon, Plus, Send, Sparkle, Stop, Sun, Trash, Upload } from "./components/icons";
 import type { Conv, Doc, Msg, Source } from "./components/types";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const CONVS_KEY = "fathom-convs";
-const TOKEN_KEY = "fathom-admin-token";
+
+type Job = { id: string; name: string; pct: number; stage: "queued" | "uploading" | "indexing" | "done" | "error"; msg?: string };
+const ALLOWED = [".txt", ".md", ".pdf"];
 
 export default function Home() {
   const [msgs, setMsgs] = useState<Msg[]>([]);
@@ -17,8 +19,9 @@ export default function Home() {
   const [convId, setConvId] = useState<string>(uid());
   const [convsLoaded, setConvsLoaded] = useState(false);
   const [tab, setTab] = useState<"chats" | "docs">("docs");
-  const [tokenPrompt, setTokenPrompt] = useState<null | (() => void)>(null);
-  const [tokenInput, setTokenInput] = useState("");
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [confirmId, setConfirmId] = useState<number | null>(null);
+  const [busyDocs, setBusyDocs] = useState<Record<number, "deleting" | "downloading">>({});
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [docs, setDocs] = useState<Doc[]>([]);
@@ -26,7 +29,6 @@ export default function Home() {
   const [agent, setAgent] = useState(true);
   const [rerank, setRerank] = useState(true);
   const [active, setActive] = useState<Source | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [dark, setDark] = useState(true);
   const [sidebar, setSidebar] = useState(false);
@@ -119,15 +121,6 @@ export default function Home() {
     }
   };
 
-  const adminHeaders = (): Record<string, string> => {
-    try {
-      const t = localStorage.getItem(TOKEN_KEY);
-      return t ? { "X-Admin-Token": t } : {};
-    } catch {
-      return {};
-    }
-  };
-
   const patchLast = (fn: (m: Msg) => Msg) => setMsgs((ms) => ms.map((m, i) => (i === ms.length - 1 ? fn(m) : m)));
 
   async function send(text: string) {
@@ -191,31 +184,84 @@ export default function Home() {
     }
   }
 
-  async function upload(files: FileList | File[] | null) {
-    if (!files || !files.length) return;
-    setUploading(true);
-    setNotice(null);
-    for (const f of Array.from(files)) {
+  const patchJob = (id: string, p: Partial<Job>) => setJobs((js) => js.map((j) => (j.id === id ? { ...j, ...p } : j)));
+
+  function sendFile(f: File, id: string): Promise<void> {
+    return new Promise((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${API}/api/documents`);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) patchJob(id, { stage: "uploading", pct: Math.round((e.loaded / e.total) * 100) });
+      };
+      xhr.upload.onload = () => patchJob(id, { stage: "indexing", pct: 100 });
+      xhr.onload = () => {
+        let body: any = {};
+        try {
+          body = JSON.parse(xhr.responseText);
+        } catch {}
+        if (xhr.status >= 200 && xhr.status < 300) {
+          patchJob(id, { stage: "done", msg: body.chunks ? `${body.chunks} passages indexed` : "Added" });
+          loadDocs();
+          setTimeout(() => setJobs((js) => js.filter((j) => j.id !== id)), 4000);
+        } else {
+          const msg = xhr.status === 429 ? "Too many uploads — try again later" : body.detail || `Upload failed (${xhr.status})`;
+          patchJob(id, { stage: "error", msg: String(msg) });
+        }
+        resolve();
+      };
+      xhr.onerror = () => {
+        patchJob(id, { stage: "error", msg: "Network error — is the server reachable?" });
+        resolve();
+      };
       const fd = new FormData();
       fd.append("file", f);
-      try {
-        const r = await fetch(`${API}/api/documents`, { method: "POST", body: fd, headers: adminHeaders() });
-        if (r.status === 401) {
-          setTokenPrompt(() => () => upload([f]));
-        } else if (!r.ok) setNotice(`${f.name}: ${(await r.json()).detail || "upload failed"}`);
-      } catch {
-        setNotice(`${f.name}: upload failed`);
-      }
+      xhr.send(fd);
+    });
+  }
+
+  const uploading = jobs.some((j) => j.stage === "queued" || j.stage === "uploading" || j.stage === "indexing");
+  const queue = useRef<Promise<void>>(Promise.resolve());
+
+  function upload(files: FileList | File[] | null) {
+    if (!files || !files.length) return;
+    setTab("docs");
+    for (const f of Array.from(files)) {
+      const id = uid();
+      const ok = ALLOWED.some((ext) => f.name.toLowerCase().endsWith(ext));
+      setJobs((js) => [...js, { id, name: f.name, pct: 0, stage: ok ? "queued" : "error", msg: ok ? undefined : "Only .txt, .md and .pdf files are supported" }]);
+      if (ok) queue.current = queue.current.then(() => (patchJob(id, { stage: "uploading" }), sendFile(f, id)));
     }
-    setUploading(false);
-    loadDocs();
   }
 
   async function removeDoc(id: number) {
-    const r = await fetch(`${API}/api/documents/${id}`, { method: "DELETE", headers: adminHeaders() });
-    if (r.status === 401) setTokenPrompt(() => () => removeDoc(id));
-    else if (!r.ok) setNotice((await r.json().catch(() => ({}))).detail || "Delete failed");
-    loadDocs();
+    setConfirmId(null);
+    setBusyDocs((b) => ({ ...b, [id]: "deleting" }));
+    try {
+      const r = await fetch(`${API}/api/documents/${id}`, { method: "DELETE" });
+      if (!r.ok) setNotice((await r.json().catch(() => ({}))).detail || "Delete failed");
+    } catch {
+      setNotice("Delete failed — is the server reachable?");
+    }
+    await loadDocs();
+    setBusyDocs((b) => {
+      const { [id]: _, ...rest } = b;
+      return rest;
+    });
+  }
+
+  async function downloadDoc(id: number) {
+    setBusyDocs((b) => ({ ...b, [id]: "downloading" }));
+    try {
+      const r = await fetch(`${API}/api/documents/${id}/download`);
+      if (!r.ok) setNotice((await r.json().catch(() => ({}))).detail || "Download failed");
+      else window.open((await r.json()).url, "_blank", "noopener");
+    } catch {
+      setNotice("Download failed — is the server reachable?");
+    }
+    setBusyDocs((b) => {
+      const { [id]: _, ...rest } = b;
+      return rest;
+    });
   }
 
   const totalChunks = docs.reduce((a, d) => a + d.chunks, 0);
@@ -305,27 +351,86 @@ export default function Home() {
             }`}
           >
             <Upload width={18} height={18} />
-            <span className="font-medium">{uploading ? "Ingesting…" : "Drop files or click to upload"}</span>
-            <span className="text-[11px] opacity-70">.txt · .md · .pdf</span>
+            <span className="font-medium">{dragging ? "Release to upload" : "Drop files or click to upload"}</span>
+            <span className="text-[11px] opacity-70">.txt · .md · .pdf · multiple files OK</span>
             <input type="file" multiple accept=".txt,.md,.pdf" className="hidden" onChange={(e) => (upload(e.target.files), (e.target.value = ""))} />
           </label>
         </div>
 
+        {jobs.length > 0 && (
+          <ul className="mx-3 mt-2 space-y-1.5">
+            {jobs.map((j) => (
+              <li key={j.id} className="fade-up rounded-lg border border-border bg-surface-2 px-2.5 py-2 text-xs">
+                <div className="flex items-center gap-2">
+                  {j.stage === "done" ? (
+                    <Check width={14} height={14} className="shrink-0 text-success" />
+                  ) : j.stage === "error" ? (
+                    <Close width={14} height={14} className="shrink-0 text-danger" />
+                  ) : (
+                    <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
+                  )}
+                  <span className="flex-1 truncate text-fg-2" title={j.name}>{j.name}</span>
+                  {j.stage === "uploading" && <span className="tabular-nums text-muted">{j.pct}%</span>}
+                  {j.stage === "error" && (
+                    <button onClick={() => setJobs((js) => js.filter((x) => x.id !== j.id))} className="text-muted hover:text-fg" aria-label="Dismiss">
+                      <Close width={12} height={12} />
+                    </button>
+                  )}
+                </div>
+                {(j.stage === "uploading" || j.stage === "indexing") && (
+                  <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-surface-3">
+                    <div className={`h-full rounded-full bg-accent transition-all ${j.stage === "indexing" ? "shimmer w-full" : ""}`} style={j.stage === "uploading" ? { width: `${j.pct}%` } : undefined} />
+                  </div>
+                )}
+                <div className={`mt-1 ${j.stage === "error" ? "text-danger" : j.stage === "done" ? "text-success" : "text-muted"}`}>
+                  {j.stage === "queued" && "Waiting…"}
+                  {j.stage === "uploading" && "Uploading…"}
+                  {j.stage === "indexing" && "Reading, chunking & embedding — this can take a few seconds…"}
+                  {(j.stage === "done" || j.stage === "error") && j.msg}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
         <ul className="mt-2 flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
           {!docsLoaded && [0, 1, 2, 3].map((i) => <li key={i} className="shimmer mx-1 my-1.5 h-8 rounded-lg" />)}
           {docsLoaded && docs.length === 0 && <li className="px-3 py-6 text-center text-xs text-muted">No documents yet.</li>}
-          {docs.map((d) => (
-            <li key={d.id} className="group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2">
-              <File width={15} height={15} className="shrink-0 text-muted" />
-              <span className="flex-1 truncate text-fg-2" title={d.title}>
-                {d.title}
-              </span>
-              <span className="text-[11px] tabular-nums text-muted group-hover:hidden">{d.chunks}</span>
-              <button onClick={() => removeDoc(d.id)} className="hidden text-muted hover:text-danger group-hover:block" aria-label={`Delete ${d.title}`}>
-                <Trash width={14} height={14} />
-              </button>
-            </li>
-          ))}
+          {docs.map((d) => {
+            const st = busyDocs[d.id];
+            return (
+              <li key={d.id} className={`group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2 ${st === "deleting" ? "opacity-50" : ""}`}>
+                <File width={15} height={15} className="shrink-0 text-muted" />
+                <span className="flex-1 truncate text-fg-2" title={d.title}>
+                  {d.title}
+                </span>
+                {st ? (
+                  <span className="flex items-center gap-1.5 text-[11px] text-muted">
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
+                    {st === "deleting" ? "Deleting…" : "Preparing…"}
+                  </span>
+                ) : confirmId === d.id ? (
+                  <span className="flex items-center gap-1 text-[11px]">
+                    <span className="text-muted">Delete?</span>
+                    <button onClick={() => removeDoc(d.id)} className="rounded px-1.5 py-0.5 font-medium text-danger hover:bg-danger/10">Yes</button>
+                    <button onClick={() => setConfirmId(null)} className="rounded px-1.5 py-0.5 text-muted hover:bg-surface-3">No</button>
+                  </span>
+                ) : (
+                  <>
+                    <span className="text-[11px] tabular-nums text-muted" title={`${d.chunks} passages`}>{d.chunks}</span>
+                    {d.stored && (
+                      <button onClick={() => downloadDoc(d.id)} className="text-muted opacity-60 hover:text-fg group-hover:opacity-100" aria-label={`Download ${d.title}`} title="Download original">
+                        <Download width={14} height={14} />
+                      </button>
+                    )}
+                    <button onClick={() => setConfirmId(d.id)} className="text-muted opacity-60 hover:text-danger group-hover:opacity-100" aria-label={`Delete ${d.title}`} title="Delete">
+                      <Trash width={14} height={14} />
+                    </button>
+                  </>
+                )}
+              </li>
+            );
+          })}
         </ul>
           </>
         )}
@@ -448,44 +553,6 @@ export default function Home() {
           </form>
         </div>
       </main>
-
-      {tokenPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setTokenPrompt(null)}>
-          <form
-            onClick={(e) => e.stopPropagation()}
-            onSubmit={(e) => {
-              e.preventDefault();
-              try {
-                localStorage.setItem(TOKEN_KEY, tokenInput.trim());
-              } catch {}
-              const retry = tokenPrompt;
-              setTokenPrompt(null);
-              setTokenInput("");
-              retry();
-            }}
-            className="w-full max-w-sm rounded-2xl border border-border bg-surface p-5 shadow-[var(--shadow)]"
-          >
-            <div className="text-sm font-semibold">Admin token required</div>
-            <p className="mt-1 text-xs text-muted">Uploading and deleting documents is protected on this server.</p>
-            <input
-              autoFocus
-              type="password"
-              value={tokenInput}
-              onChange={(e) => setTokenInput(e.target.value)}
-              placeholder="Admin token"
-              className="mt-3 w-full rounded-lg border border-border-strong bg-surface-2 px-3 py-2 text-sm outline-none focus:border-accent"
-            />
-            <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setTokenPrompt(null)} className="rounded-lg px-3 py-1.5 text-sm text-muted hover:bg-surface-2">
-                Cancel
-              </button>
-              <button disabled={!tokenInput.trim()} className="rounded-lg bg-accent-strong px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40">
-                Continue
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
 
       {/* Source drawer */}
       {active && (

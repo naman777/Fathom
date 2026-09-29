@@ -9,5 +9,5 @@ export type Msg = {
   error?: { message: string; retryAfter?: number };
   streaming?: boolean;
 };
-export type Doc = { id: number; title: string; source: string; chunks: number };
+export type Doc = { id: number; title: string; source: string; chunks: number; stored?: boolean };
 export type Conv = { id: string; title: string; msgs: Msg[]; updated: number };
