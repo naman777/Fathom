@@ -1,0 +1,159 @@
+@import "tailwindcss";
+
+/* Design tokens — dark is the default; light via [data-theme="light"] */
+:root {
+  --bg: #0a0d14;
+  --surface: #10141d;
+  --surface-2: #171c28;
+  --surface-3: #1e2433;
+  --border: #232a3a;
+  --border-strong: #2f384d;
+  --fg: #e6e9f0;
+  --fg-2: #b4bbcb;
+  --muted: #7d8699;
+  --accent: #7c8cff;
+  --accent-strong: #5b6cf5;
+  --accent-soft: rgba(124, 140, 255, 0.14);
+  --success: #3ecf8e;
+  --warning: #f5b544;
+  --danger: #f87171;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme="light"] {
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --surface-2: #f0f3f9;
+  --surface-3: #e6ebf4;
+  --border: #e2e7f0;
+  --border-strong: #cfd6e4;
+  --fg: #111827;
+  --fg-2: #374151;
+  --muted: #6b7280;
+  --accent: #4f5df0;
+  --accent-strong: #3f4bd6;
+  --accent-soft: rgba(79, 93, 240, 0.1);
+  --success: #12a06a;
+  --warning: #b7791f;
+  --danger: #dc2626;
+  --shadow: 0 8px 30px rgba(17, 24, 39, 0.12);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* subtle, consistent scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+/* Markdown inside assistant answers */
+.prose-fathom {
+  font-size: 0.925rem;
+  line-height: 1.7;
+  color: var(--fg);
+}
+.prose-fathom > * + * {
+  margin-top: 0.75em;
+}
+.prose-fathom h1,
+.prose-fathom h2,
+.prose-fathom h3 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-top: 1.2em;
+}
+.prose-fathom h1 { font-size: 1.2rem; }
+.prose-fathom h2 { font-size: 1.1rem; }
+.prose-fathom h3 { font-size: 1rem; }
+.prose-fathom ul { list-style: disc; padding-left: 1.3em; }
+.prose-fathom ol { list-style: decimal; padding-left: 1.4em; }
+.prose-fathom li + li { margin-top: 0.3em; }
+.prose-fathom strong { font-weight: 600; }
+.prose-fathom code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--surface-3);
+  padding: 0.12em 0.4em;
+  border-radius: 6px;
+}
+.prose-fathom pre {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.9em 1em;
+  overflow-x: auto;
+}
+.prose-fathom pre code { background: none; padding: 0; }
+.prose-fathom table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+.prose-fathom th, .prose-fathom td { border: 1px solid var(--border); padding: 0.4em 0.7em; text-align: left; }
+.prose-fathom th { background: var(--surface-2); }
+.prose-fathom blockquote { border-left: 3px solid var(--border-strong); padding-left: 1em; color: var(--fg-2); }
+
+.cite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  margin: 0 0.15rem;
+  padding: 0 0.3rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+  vertical-align: 0.1em;
+  border-radius: 6px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.cite:hover { background: var(--accent); color: white; }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.fade-up { animation: fade-up 0.25s ease-out both; }
+
+@keyframes blink { 50% { opacity: 0; } }
+.caret { display: inline-block; width: 7px; height: 1em; margin-left: 2px; vertical-align: -0.15em;
+  background: var(--accent); border-radius: 1px; animation: blink 1s steps(2) infinite; }
+
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+.shimmer {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
