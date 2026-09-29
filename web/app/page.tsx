@@ -3,12 +3,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Assistant from "./components/Assistant";
 import { Close, File, Logo, Menu, Moon, Plus, Send, Sparkle, Stop, Sun, Trash, Upload } from "./components/icons";
-import type { Doc, Msg, Source } from "./components/types";
+import type { Conv, Doc, Msg, Source } from "./components/types";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+const uid = () => Math.random().toString(36).slice(2, 10);
+const CONVS_KEY = "fathom-convs";
+const TOKEN_KEY = "fathom-admin-token";
+
 export default function Home() {
   const [msgs, setMsgs] = useState<Msg[]>([]);
+  const [convs, setConvs] = useState<Conv[]>([]);
+  const [convId, setConvId] = useState<string>(uid());
+  const [convsLoaded, setConvsLoaded] = useState(false);
+  const [tab, setTab] = useState<"chats" | "docs">("docs");
+  const [tokenPrompt, setTokenPrompt] = useState<null | (() => void)>(null);
+  const [tokenInput, setTokenInput] = useState("");
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [docs, setDocs] = useState<Doc[]>([]);
@@ -63,6 +73,60 @@ export default function Home() {
       ta.style.height = Math.min(ta.scrollHeight, 180) + "px";
     }
   }, [input]);
+
+  // Chat history lives in this browser only (localStorage).
+  useEffect(() => {
+    try {
+      setConvs(JSON.parse(localStorage.getItem(CONVS_KEY) || "[]"));
+    } catch {}
+    setConvsLoaded(true);
+  }, []);
+  useEffect(() => {
+    if (!convsLoaded || busy || msgs.length === 0) return;
+    const title = (msgs.find((m) => m.role === "user")?.content || "New chat").slice(0, 48);
+    setConvs((cs) => {
+      const next = [{ id: convId, title, msgs, updated: Date.now() }, ...cs.filter((c) => c.id !== convId)].slice(0, 30);
+      try {
+        localStorage.setItem(CONVS_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, [msgs, busy, convId, convsLoaded]);
+
+  const newChat = () => {
+    abort.current?.abort();
+    setMsgs([]);
+    setConvId(uid());
+    setSidebar(false);
+  };
+  const openConv = (c: Conv) => {
+    abort.current?.abort();
+    setMsgs(c.msgs.map((m) => ({ ...m, streaming: false })));
+    setConvId(c.id);
+    setSidebar(false);
+  };
+  const deleteConv = (id: string) => {
+    setConvs((cs) => {
+      const next = cs.filter((c) => c.id !== id);
+      try {
+        localStorage.setItem(CONVS_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    if (id === convId) {
+      setMsgs([]);
+      setConvId(uid());
+    }
+  };
+
+  const adminHeaders = (): Record<string, string> => {
+    try {
+      const t = localStorage.getItem(TOKEN_KEY);
+      return t ? { "X-Admin-Token": t } : {};
+    } catch {
+      return {};
+    }
+  };
 
   const patchLast = (fn: (m: Msg) => Msg) => setMsgs((ms) => ms.map((m, i) => (i === ms.length - 1 ? fn(m) : m)));
 
@@ -135,8 +199,10 @@ export default function Home() {
       const fd = new FormData();
       fd.append("file", f);
       try {
-        const r = await fetch(`${API}/api/documents`, { method: "POST", body: fd });
-        if (!r.ok) setNotice(`${f.name}: ${(await r.json()).detail || "upload failed"}`);
+        const r = await fetch(`${API}/api/documents`, { method: "POST", body: fd, headers: adminHeaders() });
+        if (r.status === 401) {
+          setTokenPrompt(() => () => upload([f]));
+        } else if (!r.ok) setNotice(`${f.name}: ${(await r.json()).detail || "upload failed"}`);
       } catch {
         setNotice(`${f.name}: upload failed`);
       }
@@ -146,7 +212,9 @@ export default function Home() {
   }
 
   async function removeDoc(id: number) {
-    await fetch(`${API}/api/documents/${id}`, { method: "DELETE" });
+    const r = await fetch(`${API}/api/documents/${id}`, { method: "DELETE", headers: adminHeaders() });
+    if (r.status === 401) setTokenPrompt(() => () => removeDoc(id));
+    else if (!r.ok) setNotice((await r.json().catch(() => ({}))).detail || "Delete failed");
     loadDocs();
   }
 
@@ -179,17 +247,40 @@ export default function Home() {
 
         <div className="px-3">
           <button
-            onClick={() => {
-              abort.current?.abort();
-              setMsgs([]);
-              setSidebar(false);
-            }}
+            onClick={newChat}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent-strong px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:brightness-110"
           >
             <Plus /> New chat
           </button>
         </div>
 
+        <div className="mx-3 mt-4 grid grid-cols-2 gap-1 rounded-lg bg-surface-2 p-1 text-xs font-medium">
+          {(["docs", "chats"] as const).map((t) => (
+            <button key={t} onClick={() => setTab(t)} className={`rounded-md py-1.5 transition ${tab === t ? "bg-surface text-fg shadow-sm" : "text-muted hover:text-fg-2"}`}>
+              {t === "docs" ? `Documents (${docs.length})` : `History (${convs.length})`}
+            </button>
+          ))}
+        </div>
+
+        {tab === "chats" && (
+          <ul className="mt-3 flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
+            {convs.length === 0 && <li className="px-3 py-6 text-center text-xs text-muted">No saved chats yet.</li>}
+            {convs.map((c) => (
+              <li key={c.id} className={`group flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2 ${c.id === convId ? "bg-surface-2" : ""}`}>
+                <button onClick={() => openConv(c)} className="min-w-0 flex-1 text-left">
+                  <div className="truncate text-fg-2">{c.title}</div>
+                  <div className="text-[11px] text-muted">{new Date(c.updated).toLocaleDateString()} · {Math.ceil(c.msgs.length / 2)} Q</div>
+                </button>
+                <button onClick={() => deleteConv(c.id)} className="hidden text-muted hover:text-danger group-hover:block" aria-label="Delete chat">
+                  <Trash width={14} height={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {tab === "docs" && (
+          <>
         <div className="mt-5 flex items-center justify-between px-4 text-[11px] font-medium uppercase tracking-wider text-muted">
           <span>Knowledge base</span>
           <span className="normal-case tracking-normal tabular-nums">
@@ -236,6 +327,8 @@ export default function Home() {
             </li>
           ))}
         </ul>
+          </>
+        )}
 
         <div className="space-y-2.5 border-t border-border p-4 text-sm">
           <div className="text-[11px] font-medium uppercase tracking-wider text-muted">Pipeline</div>
@@ -355,6 +448,44 @@ export default function Home() {
           </form>
         </div>
       </main>
+
+      {tokenPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setTokenPrompt(null)}>
+          <form
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => {
+              e.preventDefault();
+              try {
+                localStorage.setItem(TOKEN_KEY, tokenInput.trim());
+              } catch {}
+              const retry = tokenPrompt;
+              setTokenPrompt(null);
+              setTokenInput("");
+              retry();
+            }}
+            className="w-full max-w-sm rounded-2xl border border-border bg-surface p-5 shadow-[var(--shadow)]"
+          >
+            <div className="text-sm font-semibold">Admin token required</div>
+            <p className="mt-1 text-xs text-muted">Uploading and deleting documents is protected on this server.</p>
+            <input
+              autoFocus
+              type="password"
+              value={tokenInput}
+              onChange={(e) => setTokenInput(e.target.value)}
+              placeholder="Admin token"
+              className="mt-3 w-full rounded-lg border border-border-strong bg-surface-2 px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setTokenPrompt(null)} className="rounded-lg px-3 py-1.5 text-sm text-muted hover:bg-surface-2">
+                Cancel
+              </button>
+              <button disabled={!tokenInput.trim()} className="rounded-lg bg-accent-strong px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40">
+                Continue
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Source drawer */}
       {active && (

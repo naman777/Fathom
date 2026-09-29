@@ -10,3 +10,4 @@ export type Msg = {
   streaming?: boolean;
 };
 export type Doc = { id: number; title: string; source: string; chunks: number };
+export type Conv = { id: string; title: string; msgs: Msg[]; updated: number };
