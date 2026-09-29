@@ -2,19 +2,19 @@
 
 | Stage | Recall@K | Full-hit@K | Precision@K | MRR | Retr. p50 ms | Retr. p95 ms |
 |---|---|---|---|---|---|---|
-| lexical (BM25-style FTS) | 0.83 | 0.75 | 0.34 | 0.77 | 188 | 213 |
-| dense (pgvector) | 0.78 | 0.71 | 0.31 | 0.74 | 830 | 1101 |
-| hybrid (RRF) | 0.85 | 0.78 | 0.34 | 0.81 | 515 | 642 |
-| hybrid + rerank | 0.94 | 0.90 | 0.40 | 0.92 | 2286 | 3754 |
-| full pipeline, no agent | 0.94 | 0.90 | 0.41 | 0.92 | 2158 | 3244 |
-| full pipeline + agent loop | 0.94 | 0.89 | 0.36 | 0.88 | 2319 | 13490 |
+| lexical (BM25-style FTS) | 0.83 | 0.75 | 0.34 | 0.77 | 168 | 198 |
+| dense (pgvector) | 0.78 | 0.71 | 0.31 | 0.74 | 770 | 1116 |
+| hybrid (RRF) | 0.85 | 0.78 | 0.34 | 0.81 | 437 | 671 |
+| hybrid + rerank | 0.91 | 0.86 | 0.38 | 0.87 | 1343 | 1670 |
+| full pipeline, no agent | 0.91 | 0.86 | 0.38 | 0.88 | 1389 | 1615 |
+| full pipeline + agent loop | 0.94 | 0.90 | 0.36 | 0.86 | 1405 | 7744 |
 
 ## Generation
 
 | Pipeline | Answer accuracy | Unsupported-claim rate | First token p50/p95 ms | End-to-end p50/p95 ms |
 |---|---|---|---|---|
-| full pipeline, no agent | 0.88 | 0.010 | 2996 / 4300 | 3221 / 5037 |
-| full pipeline + agent loop | 0.88 | 0.013 | 3221 / 14523 | 3480 / 15373 |
+| full pipeline, no agent | 0.83 | 0.026 | 2274 / 3062 | 2544 / 3731 |
+| full pipeline + agent loop | 0.92 | 0.014 | 2258 / 8631 | 2517 / 9496 |
 
 ## Multi-hop questions only
 
@@ -23,6 +23,6 @@
 | lexical (BM25-style FTS) | 0.53 | 0.21 |
 | dense (pgvector) | 0.39 | 0.11 |
 | hybrid (RRF) | 0.47 | 0.21 |
-| hybrid + rerank | 0.79 | 0.63 |
-| full pipeline, no agent | 0.79 | 0.63 |
-| full pipeline + agent loop | 0.76 | 0.58 |
+| hybrid + rerank | 0.66 | 0.47 |
+| full pipeline, no agent | 0.66 | 0.47 |
+| full pipeline + agent loop | 0.76 | 0.63 |
