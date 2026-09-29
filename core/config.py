@@ -23,6 +23,13 @@ _load_env()
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 DB_URL = os.environ.get("DB_URL", "")
 CHAT_MODEL = os.environ.get("CHAT_MODEL", "gpt-6-luna")
+# Cheaper/faster models for the small structured calls (default to CHAT_MODEL)
+RERANK_MODEL = os.environ.get("RERANK_MODEL", "gpt-4.1-mini")
+PLANNER_MODEL = os.environ.get("PLANNER_MODEL", "gpt-4.1-mini")
+# Reranker backend: "local" (ONNX cross-encoder, fast, no API cost) or "llm"
+RERANKER = os.environ.get("RERANKER", "llm").lower()
+LOCAL_RERANK_MODEL = os.environ.get("LOCAL_RERANK_MODEL", "Xenova/ms-marco-MiniLM-L-12-v2")
+LOCAL_RERANK_CANDIDATES = int(os.environ.get("LOCAL_RERANK_CANDIDATES", "20"))
 REASONING_EFFORT = os.environ.get("REASONING_EFFORT", "low")
 EMBED_MODEL = os.environ.get("EMBED_MODEL", "text-embedding-3-small")
 EMBED_DIM = 1536
@@ -48,3 +55,8 @@ RL_GLOBAL_PER_MINUTE = _int("RATE_LIMIT_GLOBAL_PER_MINUTE", 120)
 MAX_QUESTION_CHARS = _int("MAX_QUESTION_CHARS", 1000)
 MAX_UPLOAD_MB = _int("MAX_UPLOAD_MB", 10)
 TRUST_PROXY = _bool("TRUST_PROXY", False)
+RL_DELETE_PER_HOUR = _int("RATE_LIMIT_DELETE_PER_HOUR", 20)
+# Comma-separated allowed browser origins, or "*" (dev only). E.g. https://fathom.example.com
+CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",") if o.strip()]
+# If set, uploading and deleting documents requires this token (header X-Admin-Token). Chat stays public.
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")

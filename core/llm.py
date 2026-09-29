@@ -34,22 +34,29 @@ def embed_query(text: str) -> list[float]:
     return list(_embed_cached(text))
 
 
-def _params(max_tokens: int) -> dict:
-    """gpt-6 family: max_completion_tokens (covers reasoning tokens), no custom temperature."""
-    return {"max_completion_tokens": max_tokens + 1500, "reasoning_effort": config.REASONING_EFFORT}
+def _is_reasoning(model: str) -> bool:
+    return model.startswith(("gpt-5", "gpt-6", "o1", "o3", "o4"))
 
 
-def chat(messages, json_mode=False, temperature=None, max_tokens=1200) -> str:
-    # `temperature` kept for call-site compatibility; the model only supports its default.
+def _params(model: str, max_tokens: int) -> dict:
+    """Reasoning families (gpt-5/6, o-series) take max_completion_tokens (which also covers hidden reasoning
+    tokens), reject custom temperature and accept reasoning_effort. Other models use max_tokens."""
+    if _is_reasoning(model):
+        return {"max_completion_tokens": max_tokens + 1500, "reasoning_effort": config.REASONING_EFFORT}
+    return {"max_tokens": max_tokens, "temperature": 0.1}
+
+
+def chat(messages, json_mode=False, temperature=None, max_tokens=1200, model=None) -> str:
+    # `temperature` kept for call-site compatibility; it is fixed per model family (see _params).
+    model = model or config.CHAT_MODEL
     kw = {"response_format": {"type": "json_object"}} if json_mode else {}
-    r = client().chat.completions.create(
-        model=config.CHAT_MODEL, messages=messages, **_params(max_tokens), **kw)
+    r = client().chat.completions.create(model=model, messages=messages, **_params(model, max_tokens), **kw)
     return r.choices[0].message.content or ""
 
 
-def chat_stream(messages, temperature=None, max_tokens=1500):
-    s = client().chat.completions.create(
-        model=config.CHAT_MODEL, messages=messages, stream=True, **_params(max_tokens))
+def chat_stream(messages, temperature=None, max_tokens=1500, model=None):
+    model = model or config.CHAT_MODEL
+    s = client().chat.completions.create(model=model, messages=messages, stream=True, **_params(model, max_tokens))
     for ev in s:
         if ev.choices and ev.choices[0].delta.content:
             yield ev.choices[0].delta.content
