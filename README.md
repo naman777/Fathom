@@ -11,7 +11,7 @@ question -> [planner] -> parallel hybrid search (Postgres full-text + pgvector, 
          -> citation-grounded streaming answer  ->  chat UI (citations, sources, reasoning trace)
 ```
 
-**Status:** working end to end (backend, UI, eval, tests, one-command launcher). Not deployed, and Docker is untested.
+**Status:** working end to end (backend, UI, eval, tests, one-command launcher). Deployed: UI at <https://fathom.naman.sbs>, API at <https://fathom-backend.naman.sbs>. Docker is untested.
 See [Status](#status-done-and-pending) for the full done/pending list and [Evaluation](#evaluation) for measured results
 and honest caveats.
 
@@ -540,7 +540,7 @@ handling and the scorer. There are **no** tests for the LLM calls themselves or 
 - No tests for the LLM wrapper or the frontend.
 
 **Product and operations**
-- **Deployment and a public demo link**: not done; needs hosting accounts (for example Fly.io or Render for the API, Vercel for `web/`).
+- **Deployment**: done (UI at `fathom.naman.sbs`, API at `fathom-backend.naman.sbs`). Not yet documented here: hosting setup, and a deployed-latency benchmark (`/api/stats` on the live API showed p50 about 7.7 s over 8 requests, versus 4.6 s in the offline eval).
 - **Authentication**: none: uploads/deletes are open to anyone (protected only by per-IP rate limits); no user accounts, per-user documents or multi-tenancy.
 - **Server-side chat storage**: history lives only in the browser.
 - **Shared rate-limit store** (Redis) for multi-instance deployments.
@@ -559,4 +559,4 @@ The original [build plan](Multi-Agent%20RAG%20Chat%20Platform%20%E2%80%94%20Buil
 | assistant-ui or Vercel AI SDK | custom Next.js + Tailwind chat UI over SSE | full control of the trace panel and citations |
 | Golden set of 30+ questions | 72 questions, 19 multi-hop | more coverage of multi-part questions |
 | Latency: first token < 1.5 s, retrieval+rerank < 400 ms | ~2.3 s and ~1.3 s | see caveats; benchmarks and options documented |
-| Fly.io / Render live demo | not deployed | needs accounts; local one-command run provided instead |
+| Fly.io / Render live demo | live demo at `fathom.naman.sbs` (API at `fathom-backend.naman.sbs`) | hosting differs from the plan; local one-command run also provided |
