@@ -1,25 +1,23 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { ThemeProvider, ThemeScript } from "@/components/theme-provider";
 import "./globals.css";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
-
 export const metadata: Metadata = {
-  title: "Fathom — Document intelligence",
+  title: "Fathom: document intelligence",
   description: "Ask questions across your documents with hybrid retrieval, reranking and cited answers.",
 };
 
-// Applies the saved theme before first paint to avoid a flash.
-const themeScript = `try{var t=localStorage.getItem("fathom-theme");if(t)document.documentElement.dataset.theme=t;}catch(e){}`;
+const THEME_KEY = "fathom-theme";
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`} suppressHydrationWarning>
+    <html lang="en" className="dark h-full antialiased" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <ThemeScript storageKey={THEME_KEY} />
       </head>
-      <body className="h-full">{children}</body>
+      <body className="h-full">
+        <ThemeProvider storageKey={THEME_KEY}>{children}</ThemeProvider>
+      </body>
     </html>
   );
 }

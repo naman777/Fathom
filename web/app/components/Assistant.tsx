@@ -19,7 +19,7 @@ export default function Assistant({ m, onCite, onOpenSources }: { m: Msg; onCite
 
   return (
     <div className="fade-up flex gap-3">
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-foreground/[0.06] text-highlight">
         <Sparkle width={15} height={15} />
       </div>
       <div className="min-w-0 flex-1 space-y-3">
@@ -28,7 +28,7 @@ export default function Assistant({ m, onCite, onOpenSources }: { m: Msg; onCite
         {m.streaming && !m.content && !m.error && <Skeleton />}
 
         {m.error ? (
-          <div className="flex items-start gap-2.5 rounded-xl border border-danger/30 bg-danger/10 p-3.5 text-sm text-danger">
+          <div className="flex items-start gap-2.5 rounded-xl border border-danger/30 p-3.5 text-sm text-danger">
             <Alert className="mt-0.5 shrink-0" />
             <div>
               <div className="font-medium">{m.error.message}</div>
@@ -53,9 +53,9 @@ export default function Assistant({ m, onCite, onOpenSources }: { m: Msg; onCite
                     }
                     // Model output is untrusted (a poisoned document may try to steer it): only plain http(s) links, no images.
                     if (!/^https?:\/\//i.test(href || "")) return <span>{children}</span>;
-                    return <a href={href} target="_blank" rel="noopener noreferrer nofollow" className="text-accent underline underline-offset-2">{children}</a>;
+                    return <a href={href} target="_blank" rel="noopener noreferrer nofollow" className="text-highlight underline underline-offset-2">{children}</a>;
                   },
-                  img: ({ alt }) => <span className="text-muted" title="Images in answers are blocked">[image blocked{alt ? `: ${alt}` : ""}]</span>,
+                  img: ({ alt }) => <span className="text-muted-foreground" title="Images in answers are blocked">[image blocked{alt ? `: ${alt}` : ""}]</span>,
                 }}
               >
                 {md}
@@ -68,9 +68,9 @@ export default function Assistant({ m, onCite, onOpenSources }: { m: Msg; onCite
         {sources.length > 0 && !m.streaming && !m.error && <SourcesBar sources={sources} content={m.content} onOpen={onOpenSources} onCite={onCite} />}
 
         {!m.streaming && !m.error && m.content && (
-          <div className="flex items-center gap-3 text-[11px] text-muted">
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
             <button
-              className="flex items-center gap-1 rounded-md px-1.5 py-1 hover:bg-surface-2 hover:text-fg"
+              className="flex items-center gap-1 rounded-md px-1.5 py-1 hover:bg-surface-2 hover:text-foreground"
               onClick={() => {
                 navigator.clipboard?.writeText(m.content);
                 setCopied(true);
@@ -116,12 +116,12 @@ function TracePanel({ trace, streaming, hasAnswer }: { trace: Trace[]; streaming
   const summary = streaming && !hasAnswer ? liveLabel(last) : `Reasoned in ${steps.filter((s) => s.type === "search").length || 1} search${steps.filter((s) => s.type === "search").length > 1 ? "es" : ""}`;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-surface">
+    <div className="card-chai overflow-hidden">
       <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 px-3 py-2 text-xs text-fg-2 hover:bg-surface-2">
-        {streaming && !hasAnswer ? <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" /> : <Check width={13} height={13} className="text-success" />}
+        {streaming && !hasAnswer ? <span className="h-1.5 w-1.5 rounded-full bg-primary motion-safe:animate-pulse" /> : <Check width={13} height={13} className="text-success" />}
         <span className="flex-1 text-left font-medium">{summary}</span>
-        <span className="text-muted">{steps.length} steps</span>
-        <Chevron width={14} height={14} className={`text-muted transition ${open ? "rotate-90" : ""}`} />
+        <span className="text-muted-foreground">{steps.length} steps</span>
+        <Chevron width={14} height={14} className={`text-muted-foreground transition ${open ? "rotate-90" : ""}`} />
       </button>
       {open && (
         <ol className="space-y-2.5 border-t border-border px-3.5 py-3">
@@ -146,10 +146,10 @@ function liveLabel(t?: Trace) {
 function Step({ t }: { t: Trace }) {
   const row = (icon: React.ReactNode, title: string, body?: React.ReactNode) => (
     <li className="flex gap-2.5 text-xs">
-      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-surface-2 text-muted">{icon}</span>
+      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-surface-2 text-muted-foreground">{icon}</span>
       <div className="min-w-0">
         <div className="font-medium text-fg-2">{title}</div>
-        {body && <div className="mt-0.5 text-muted">{body}</div>}
+        {body && <div className="mt-0.5 text-muted-foreground">{body}</div>}
       </div>
     </li>
   );
@@ -158,7 +158,7 @@ function Step({ t }: { t: Trace }) {
   if (t.type === "search") return row(<Search width={12} height={12} />, `Search ${t.hop}`, `“${t.query}”`);
   if (t.type === "results") return row(<Eye width={12} height={12} />, `${t.count} passages retrieved`, (t.titles || []).join(", "));
   if (t.type === "reflect")
-    return row(<Sparkle width={12} height={12} />, t.sufficient ? "Evidence is sufficient" : "Evidence incomplete — following up", t.sufficient ? null : `Missing: ${t.missing}`);
+    return row(<Sparkle width={12} height={12} />, t.sufficient ? "Evidence is sufficient" : "Evidence incomplete, following up", t.sufficient ? null : `Missing: ${t.missing}`);
   return null;
 }
 
@@ -167,25 +167,25 @@ function SourcesBar({ sources, content, onOpen, onCite }: { sources: Source[]; c
   const docs = new Map<string, Source[]>();
   for (const s of sources) docs.set(s.title, [...(docs.get(s.title) || []), s]);
   return (
-    <div className="rounded-xl border border-border bg-surface">
+    <div className="card-chai">
       <button onClick={onOpen} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-surface-2">
         <span className="flex -space-x-1.5">
           {sources.slice(0, 4).map((s) => (
-            <span key={s.n} className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface bg-accent-soft text-[10px] font-semibold text-accent">
+            <span key={s.n} className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface bg-foreground/[0.06] text-[10px] font-semibold text-highlight">
               {s.n}
             </span>
           ))}
           {sources.length > 4 && (
-            <span className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface bg-surface-3 text-[10px] text-muted">+{sources.length - 4}</span>
+            <span className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface bg-surface-3 text-[10px] text-muted-foreground">+{sources.length - 4}</span>
           )}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-xs font-medium text-fg">
+          <span className="block font-montserrat text-xs font-semibold text-foreground">
             {sources.length} passage{sources.length === 1 ? "" : "s"} from {docs.size} document{docs.size === 1 ? "" : "s"}
           </span>
-          <span className="block truncate text-[11px] text-muted">{Array.from(docs.keys()).join(" · ")}</span>
+          <span className="block truncate text-[11px] text-muted-foreground">{Array.from(docs.keys()).join(" · ")}</span>
         </span>
-        <span className="flex items-center gap-1 text-[11px] font-medium text-accent">
+        <span className="flex items-center gap-1 text-[11px] font-medium text-highlight">
           View <Chevron width={13} height={13} />
         </span>
       </button>
@@ -195,8 +195,8 @@ function SourcesBar({ sources, content, onOpen, onCite }: { sources: Source[]; c
             key={s.n}
             onClick={() => onCite(s)}
             title={s.content.slice(0, 160)}
-            className={`flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition hover:border-accent/60 hover:text-fg ${
-              citedN.has(s.n) ? "border-accent/40 bg-accent-soft text-accent" : "border-border text-muted"
+            className={`flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition hover:border-card-edge-hover hover:text-foreground ${
+              citedN.has(s.n) ? "border-card-edge-hover bg-foreground/[0.06] text-highlight" : "border-border text-muted-foreground"
             }`}
           >
             <span className="font-semibold">{s.n}</span>

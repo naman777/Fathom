@@ -1,8 +1,9 @@
 from core import llm, obs
 
 
-def search(conn, query: str, k: int = 20, doc_ids=None):
-    qv = llm.embed_query(query)
+def search(conn, query: str, k: int = 20, doc_ids=None, vector=None):
+    """`vector` overrides the embedding of `query` (used by HyDE)."""
+    qv = vector if vector is not None else llm.embed_query(query)
     filt = "WHERE c.document_id = ANY(%s)" if doc_ids else ""
     params = [qv] + ([list(doc_ids)] if doc_ids else []) + [qv, k]
     with obs.stage("dense"):

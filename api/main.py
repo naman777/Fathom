@@ -1,5 +1,7 @@
 import json
+import threading
 import time
+from collections import defaultdict
 from pathlib import Path
 
 from fastapi.concurrency import run_in_threadpool
@@ -11,6 +13,7 @@ from pydantic import BaseModel
 from agent import loop
 from core import config, db, obs, storage
 from core.ratelimit import rate_limit_middleware
+from eval import real_corpus
 from generation import prompt
 from ingest.pipeline import ingest_text, read_file
 
@@ -102,6 +105,32 @@ async def upload(file: UploadFile = File(...)):
     return result
 
 
+_sample_locks: dict[str, threading.Lock] = defaultdict(threading.Lock)  # one ingest per sample file at a time (per process)
+
+
+@app.get("/api/sample")
+def sample():
+    """The built-in sample corpus (the RFC set the real-corpus evaluation runs on) and its labelled questions.
+    Files are listed smallest first, which is also the fastest order to index them in."""
+    golden = json.loads((config.ROOT / "eval" / "real_golden_set.json").read_text(encoding="utf-8"))
+    return {"files": [{"name": p.name, "title": real_corpus.title_of(p), "kb": round(p.stat().st_size / 1024)}
+                      for p in sorted(real_corpus.files(), key=lambda p: p.stat().st_size)],
+            "questions": [{"question": q["question"], "docs": sorted({e["doc"] for e in q["evidence"]})} for q in golden]}
+
+
+@app.post("/api/sample/{name}")
+def load_sample(name: str):
+    """Index one sample file (cleaned exactly as for the evaluation). A file that is already present is skipped."""
+    path = next((p for p in real_corpus.files() if p.name == name), None)
+    if path is None:
+        raise HTTPException(404, "Not a sample document")
+    title = real_corpus.title_of(path)
+    with _sample_locks[name], db.connect() as c:
+        if c.execute("SELECT 1 FROM documents WHERE source=%s", (name,)).fetchone():
+            return {"title": title, "skipped": True}
+        return ingest_text(title, real_corpus.clean(path.read_text(encoding="utf-8", errors="ignore")), name, c)
+
+
 @app.post("/api/chat")
 def chat(req: ChatReq):
     if not req.question.strip():
@@ -154,7 +183,7 @@ def chat(req: ChatReq):
 def stats():
     """Aggregate of the most recent requests: latency, tokens, cost and where the time went."""
     return {**obs.stats(), "priced_models": sorted(config.MODEL_PRICES), "prices": config.MODEL_PRICES, "models": {
-        "answer": config.CHAT_MODEL, "rerank": config.RERANK_MODEL, "planner": config.PLANNER_MODEL,
+        "answer": config.CHAT_MODEL, "rerank": config.RERANK_MODEL, "planner": config.PLANNER_MODEL, **({"hyde": config.HYDE_MODEL} if config.HYDE else {}),
         "embed": config.EMBED_MODEL}}
 
 

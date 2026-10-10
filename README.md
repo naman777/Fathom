@@ -70,6 +70,10 @@ One Postgres database holds both indexes:
 ### 3. Hybrid retrieval (`retrieval/`)
 - `lexical.py`: Postgres full-text search (`ts_rank_cd`) with OR semantics so long natural-language questions still match.
 - `dense.py`: cosine similarity over the HNSW index; query embeddings are cached in-process so repeat queries are free.
+- `hyde.py` (optional, `HYDE=true`): HyDE. A model writes the passage a document would contain to answer the question;
+  the dense leg searches with the mean of that passage's embedding and the question's. Lexical search and the reranker
+  still use the original question. Costs one LLM call per new query (cached); **not yet measured**, so off by default.
+  Compare with `python -m eval.run_eval --skip-e2e --hyde --out results_hyde`.
 - `fuse.py`: Reciprocal Rank Fusion (`k=60`) over the two ranked lists of 20 candidates each.
 - `rerank.py`: the top 20 fused candidates are scored 0-9 in **one** short LLM call (default `gpt-6-luna`); the best `k`
   are kept. `rerank_local.py` is an optional API-free alternative (see [Configuration](#configuration)).
@@ -116,7 +120,7 @@ core/                config.py (env, prices), llm.py (OpenAI wrapper + token acc
                      db.py (schema), ratelimit.py (per-IP limiter), storage.py (S3)
 ingest/              chunking.py, context.py (contextual headers), safety.py (injection scan), pipeline.py
                      (CLI: python -m ingest.pipeline [path])
-retrieval/           lexical.py (4 modes), dense.py, fuse.py, rerank.py, rerank_local.py, expand.py, search.py
+retrieval/           lexical.py (4 modes), dense.py, fuse.py, hyde.py, rerank.py, rerank_local.py, expand.py, search.py
 agent/               loop.py (plan -> parallel search -> reflect -> follow-up)
 generation/          prompt.py (grounded prompts, blocking and streaming)
 api/                 main.py (FastAPI: chat SSE, documents CRUD, health)
@@ -194,6 +198,7 @@ Everything is read from `.env` (see `.env.example`). Only the first two are requ
 | `CHUNK_HEADERS` | `false` | prefix each new chunk with `[title - description > section]` (one small LLM call per document) |
 | `LEXICAL_MODE` | `websearch` | `or`, `or_norm`, `websearch` or `trigram` (see Retrieval upgrades) |
 | `NEIGHBOR_EXPAND` | `1` | neighbouring chunks per side handed to the answerer with each hit (0 = off; about +40-50% tokens per question) |
+| `HYDE`, `HYDE_MODEL` | `false`, `gpt-6-luna` | HyDE: vector search with a hypothetical answer passage averaged with the question (one extra LLM call per new query; unmeasured) |
 | `MAX_FOLLOWUPS` | `1` | follow-up searches the agent may make after reflecting |
 | `MODEL_PRICES` | built in: `gpt-6-luna` $0.10/$0.50, `gpt-4.1-mini` $0.40/$1.60, `text-embedding-3-small` $0.02 | JSON `{"model": [usd_per_1M_input, usd_per_1M_output]}` to override or add models |
 | `PROMPT_HARDENING` | `true` | wrap retrieved passages as untrusted data in every prompt (turn off only for the injection test) |
@@ -212,6 +217,8 @@ Everything is read from `.env` (see `.env.example`). Only the first two are requ
 | `GET /api/documents` | list documents with chunk counts |
 | `POST /api/documents` | upload a `.txt`/`.md`/`.pdf` (multipart field `file`); stored in S3 when `AWS_S3_BUCKET` is set |
 | `DELETE /api/documents/{id}` | delete a document and its chunks (rate limited, no authentication) |
+| `GET /api/sample` | the built-in sample corpus (the 11 evaluation RFCs, smallest first) and its 20 labelled questions |
+| `POST /api/sample/{name}` | index one sample file, cleaned as for the evaluation; skipped if already present (rate limited) |
 | `POST /api/chat` | body `{question, history?, agent?, rerank?}`; responds with an SSE stream and an `X-Trace-Id` header |
 | `GET /api/stats` | latency, tokens, cost and stage shares aggregated over the last 200 requests, plus the configured price table |
 | `GET /api/eval-results` | saved evaluation summaries (feeds the Results page) |
@@ -233,6 +240,8 @@ Chat SSE events: `meta` (trace id), `trace` (plan / search / results / reflect /
   each answer, timing (retrieval / first token / total), copy button, stop-generation button.
 - **Reasoning trace**: live progress ("Planning searches...", "Searching: ...") that folds into a summary such as
   "Reasoned in 3 searches" and can be expanded to show the plan, each query, passages retrieved and the reflection result.
+- **Sample corpus**: while any of the 11 evaluation RFCs is missing, the empty chat offers **Load sample**. One click
+  indexes the smallest RFC, asks a labelled question about it, then indexes the rest in the background.
 - **Sidebar**: knowledge-base list with drag-and-drop upload and delete, saved **History** (stored in this browser's
   `localStorage`, last 30 chats), and switches for the agent loop and reranker.
 - **Polish**: light/dark theme with saved preference, responsive layout with a slide-in sidebar on mobile, friendly
@@ -257,7 +266,7 @@ also set a monthly budget cap in the OpenAI dashboard.
 
 Every chat request gets a **trace id**, and everything that happens inside it reports to that trace (`core/obs.py`):
 
-- **Stage timings**: `embed`, `lexical`, `dense`, `rerank`, `plan`, `reflect`, `answer`. Times are *summed busy time*, so
+- **Stage timings**: `embed`, `hyde` (when enabled), `lexical`, `dense`, `rerank`, `plan`, `reflect`, `answer`. Times are *summed busy time*, so
   parallel sub-queries can add up to more than the wall-clock time; shares are computed against the sum of the leaf stages
   and always total 100%.
 - **Tokens and cost**: prompt and completion tokens per model (read from the provider's usage field, including streamed

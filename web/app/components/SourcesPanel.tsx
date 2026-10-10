@@ -50,17 +50,17 @@ export default function SourcesPanel({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={onClose} />
-      <aside className="fade-up fixed inset-y-0 right-0 z-50 flex w-full max-w-[480px] flex-col border-l border-border bg-surface shadow-[var(--shadow)] lg:static lg:z-auto lg:w-[440px] lg:max-w-none lg:shrink-0 lg:shadow-none">
+      <div className="fixed inset-0 z-40 bg-black/55 backdrop-blur-sm lg:hidden" onClick={onClose} />
+      <aside className="fade-up fixed inset-y-0 right-0 z-50 flex w-full max-w-[480px] flex-col border-l border-border bg-surface lg:static lg:z-auto lg:w-[440px] lg:max-w-none lg:shrink-0">
         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0">
-            <div className="text-sm font-semibold">Sources</div>
-            <div className="text-xs text-muted">
+            <div className="font-montserrat text-sm font-semibold">Sources</div>
+            <div className="text-xs text-muted-foreground">
               {sources.length} passage{sources.length === 1 ? "" : "s"} · {docCount} document{docCount === 1 ? "" : "s"}
               {cited.length > 0 && <> · {cited.length} cited</>}
             </div>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-fg" aria-label="Close sources">
+          <button onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-surface-2 hover:text-foreground" aria-label="Close sources">
             <Close />
           </button>
         </div>
@@ -74,7 +74,7 @@ export default function SourcesPanel({
               <button
                 key={String(o.v)}
                 onClick={() => setCitedOnly(o.v)}
-                className={`rounded-full px-3 py-1 transition ${citedOnly === o.v ? "bg-accent-soft font-medium text-accent" : "text-muted hover:bg-surface-2 hover:text-fg"}`}
+                className={`rounded-full px-3 py-1 transition ${citedOnly === o.v ? "bg-foreground/[0.06] font-medium text-highlight" : "text-muted-foreground hover:bg-surface-2 hover:text-foreground"}`}
               >
                 {o.label}
               </button>
@@ -86,12 +86,12 @@ export default function SourcesPanel({
           {groups.map(([title, items]) => (
             <section key={title}>
               <div className="mb-2 flex items-center gap-2">
-                <File width={14} height={14} className="shrink-0 text-muted" />
-                <h3 className="min-w-0 flex-1 truncate text-xs font-semibold text-fg" title={title}>
+                <File width={14} height={14} className="shrink-0 text-muted-foreground" />
+                <h3 className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground" title={title}>
                   {title}
                 </h3>
                 {canDownload(title) && (
-                  <button onClick={() => onDownload(title)} className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted hover:bg-surface-2 hover:text-fg" title="Download original file">
+                  <button onClick={() => onDownload(title)} className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground hover:bg-surface-2 hover:text-foreground" title="Download original file">
                     <Download width={12} height={12} /> Original
                   </button>
                 )}
@@ -108,18 +108,18 @@ export default function SourcesPanel({
                       ref={(el) => {
                         refs.current[s.n] = el;
                       }}
-                      className={`rounded-xl border p-3 transition ${isFocus ? "border-accent bg-accent-soft ring-1 ring-accent/40" : "border-border bg-bg/40"}`}
+                      className={`rounded-xl border p-3 transition ${isFocus ? "border-card-edge-hover bg-foreground/[0.06] ring-1 ring-card-edge-hover" : "border-border bg-background/40"}`}
                     >
-                      <div className="mb-1.5 flex items-center gap-2 text-[11px] text-muted">
-                        <span className="flex h-5 min-w-5 items-center justify-center rounded-md bg-accent-soft px-1 font-semibold text-accent">{s.n}</span>
+                      <div className="mb-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-md bg-foreground/[0.06] px-1 font-semibold text-highlight">{s.n}</span>
                         <span>Passage {s.position + 1}</span>
                         {isCited && (
-                          <span className="flex items-center gap-1 rounded-full bg-success/10 px-1.5 py-0.5 text-success">
+                          <span className="flex items-center gap-1 rounded-full border border-success/30 px-1.5 py-0.5 text-success">
                             <Check width={10} height={10} /> cited
                           </span>
                         )}
                         <button
-                          className="ml-auto rounded p-1 hover:bg-surface-2 hover:text-fg"
+                          className="ml-auto rounded p-1 hover:bg-surface-2 hover:text-foreground"
                           aria-label="Copy passage"
                           onClick={() => {
                             navigator.clipboard?.writeText(s.content);
@@ -134,7 +134,7 @@ export default function SourcesPanel({
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{s.content}</ReactMarkdown>
                       </div>
                       {long && (
-                        <button onClick={() => setExpanded((e) => ({ ...e, [s.n]: !open }))} className="mt-1.5 text-[11px] font-medium text-accent hover:underline">
+                        <button onClick={() => setExpanded((e) => ({ ...e, [s.n]: !open }))} className="mt-1.5 text-[11px] font-medium text-highlight hover:underline">
                           {open ? "Show less" : "Show more"}
                         </button>
                       )}
@@ -144,7 +144,7 @@ export default function SourcesPanel({
               </div>
             </section>
           ))}
-          {groups.length === 0 && <p className="py-8 text-center text-xs text-muted">No passages to show.</p>}
+          {groups.length === 0 && <p className="py-8 text-center text-xs text-muted-foreground">No passages to show.</p>}
         </div>
       </aside>
     </>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Alert } from "@/components/ui/alert";
+import { Segmented } from "@/components/ui/segmented";
 import PageShell, { Card, Section } from "../components/PageShell";
 import { fmtTok, fmtUsd } from "../components/RequestStats";
 
@@ -53,9 +55,9 @@ export default function ResultsPage() {
   return (
     <PageShell
       title="Results"
-      lead="Everything here is read from the saved evaluation runs, not typed in. Stages that call a language model were repeated and are shown as mean ± standard deviation, so you can see which differences are real and which are noise."
+      lead={<>Everything here is read from the <span className="highlight">saved evaluation runs</span>, not typed in. Stages that call a language model were repeated and are shown as mean ± standard deviation, so you can see which differences are real and which are noise.</>}
     >
-      {err && <Card className="border-warning/40 text-sm text-warning">Can’t reach the API, so results can’t load. Start the backend and reload.</Card>}
+      {err && <Alert tone="warning">Can’t reach the API, so results can’t load. Start the backend and reload.</Alert>}
 
       {data && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -71,16 +73,16 @@ export default function ResultsPage() {
       )}
 
       <Section id="retrieval" title="Retrieval quality by stage" note="Full-hit@5 is the share of questions where every passage needed to answer was in the top 5. Bars show the mean; the whisker is one standard deviation across runs.">
-        <div className="mb-4 inline-flex gap-1 rounded-lg bg-surface-2 p-1 text-xs font-medium">
-          {(Object.keys(DATASETS) as (keyof typeof DATASETS)[]).map((k) => (
-            <button key={k} onClick={() => setDs(k)} className={`rounded-md px-3 py-1.5 transition ${ds === k ? "bg-surface text-fg shadow-sm" : "text-muted hover:text-fg-2"}`}>
-              {DATASETS[k].label}
-            </button>
-          ))}
-        </div>
-        <p className="mb-3 text-[13px] text-muted">{DATASETS[ds].sub}{ds === "synthetic" ? " · measured before the websearch and neighbour-expansion defaults" : " · shipped defaults"}</p>
+        <Segmented
+          label="Dataset"
+          className="mb-4 w-fit"
+          value={ds}
+          onChange={setDs}
+          options={(Object.keys(DATASETS) as (keyof typeof DATASETS)[]).map((k) => ({ value: k, label: DATASETS[k].label }))}
+        />
+        <p className="mb-3 text-[13px] text-muted-foreground">{DATASETS[ds].sub}{ds === "synthetic" ? " · measured before the websearch and neighbour-expansion defaults" : " · shipped defaults"}</p>
         <Card className="space-y-2.5">
-          {stages.length === 0 && <div className="text-sm text-muted">{data ? "No results saved for this dataset." : "Loading…"}</div>}
+          {stages.length === 0 && <div className="text-sm text-muted-foreground">{data ? "No results saved for this dataset." : "Loading…"}</div>}
           {stages.map(([name, s]) => (
             <Bar key={name} label={ds === "real" && name.startsWith("full pipeline") ? `${name} *` : name} stat={s.summary["full_hit@k"]} runs={s.runs} />
           ))}
@@ -91,7 +93,7 @@ export default function ResultsPage() {
           rows={stages.map(([name, s]) => [name, pm(s.summary["recall@k"]), pm(s.summary["full_hit@k"]), pm(s.summary["mrr"]), ms(s.summary["retrieval_ms_p50"]), ms(s.summary["retrieval_ms_p95"])])}
         />
         {ds === "real" && (
-          <p className="mt-3 max-w-2xl text-[13px] leading-relaxed text-muted">
+          <p className="mt-3 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
             * These rows include neighbour expansion (each hit is widened by the chunk before and after it), so they are measured over more text than the rows above them; compare them by answer accuracy below. Lexical search is the strongest single retriever on the synthetic set but the weakest on real text, and absolute quality is much lower on real documents. That gap is why the synthetic numbers alone would have been misleading.
           </p>
         )}
@@ -107,7 +109,7 @@ export default function ResultsPage() {
             })
           )}
         />
-        <p className="mt-3 max-w-2xl text-[13px] leading-relaxed text-muted">
+        <p className="mt-3 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
           The agent loop clearly helps questions with several parts. On the synthetic set, where questions are easy, it is not distinguishable from the plain pipeline and costs roughly three times the tail latency; the benefit shows up on harder, real text.
         </p>
       </Section>
@@ -119,23 +121,23 @@ export default function ResultsPage() {
       {stats && (
         <Section id="live" title="Live usage" note="Aggregated from the most recent requests this server handled (kept in memory; resets on restart).">
           {stats.requests === 0 ? (
-            <Card className="text-sm text-muted">No requests yet. Ask a question in the chat and it will appear here.</Card>
+            <Card className="text-sm text-muted-foreground">No requests yet. Ask a question in the chat and it will appear here.</Card>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               <Card>
-                <div className="text-xs text-muted">Requests · latency</div>
+                <div className="text-xs text-muted-foreground">Requests · latency</div>
                 <div className="mt-1 text-2xl font-semibold tabular-nums">{stats.requests}</div>
                 <div className="mt-1 text-[13px] text-fg-2">p50 {ms({ mean: stats.wall_ms_p50 || 0, sd: 0 })} · p95 {ms({ mean: stats.wall_ms_p95 || 0, sd: 0 })} · {fmtTok(stats.tokens_total || 0)} tokens</div>
                 {!!stats.requests_with_unpriced_models && <div className="mt-2 text-[11px] text-warning">{stats.requests_with_unpriced_models} requests used a model with no price set.</div>}
               </Card>
               <Card>
-                <div className="mb-2 text-xs text-muted">Where the time goes (average share of busy time)</div>
+                <div className="mb-2 text-xs text-muted-foreground">Where the time goes (average share of busy time)</div>
                 <div className="space-y-1.5">
                   {Object.entries(stats.stage_share_pct_avg || {}).map(([k, v]) => (
                     <div key={k} className="flex items-center gap-2 text-xs">
-                      <span className="w-20 shrink-0 capitalize text-muted">{k}</span>
-                      <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-3"><span className="block h-full rounded-full bg-accent" style={{ width: `${v}%` }} /></span>
-                      <span className="w-10 text-right tabular-nums text-muted">{Math.round(v)}%</span>
+                      <span className="w-20 shrink-0 capitalize text-muted-foreground">{k}</span>
+                      <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-3"><span className="block h-full rounded-full bg-primary" style={{ width: `${v}%` }} /></span>
+                      <span className="w-10 text-right tabular-nums text-muted-foreground">{Math.round(v)}%</span>
                     </div>
                   ))}
                 </div>
@@ -168,9 +170,9 @@ export default function ResultsPage() {
 function Headline({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
     <Card>
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</div>
-      <div className="mt-1.5 text-3xl font-semibold tabular-nums tracking-tight">{value}</div>
-      <div className="mt-1 text-[12px] leading-snug text-muted">{sub}</div>
+      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-1.5 font-montserrat text-3xl font-semibold tabular-nums tracking-tight">{value}</div>
+      <div className="mt-1 text-[12px] leading-snug text-muted-foreground">{sub}</div>
     </Card>
   );
 }
@@ -182,19 +184,19 @@ function Bar({ label, stat, runs }: { label: string; stat?: Stat; runs: number }
     <div className="grid grid-cols-[minmax(110px,220px)_1fr_auto] items-center gap-3 text-[13px]">
       <span className="truncate text-fg-2" title={label}>{label}</span>
       <span className="relative h-3 rounded-full bg-surface-3">
-        <span className="absolute inset-y-0 left-0 rounded-full bg-accent" style={{ width: pct(stat.mean) }} />
-        {stat.sd > 0 && <span className="absolute top-1/2 h-px -translate-y-1/2 bg-fg" style={{ left: pct(stat.mean - stat.sd), width: `calc(${pct(stat.mean + stat.sd)} - ${pct(stat.mean - stat.sd)})` }} />}
+        <span className="absolute inset-y-0 left-0 rounded-full bg-primary" style={{ width: pct(stat.mean) }} />
+        {stat.sd > 0 && <span className="absolute top-1/2 h-px -translate-y-1/2 bg-foreground" style={{ left: pct(stat.mean - stat.sd), width: `calc(${pct(stat.mean + stat.sd)} - ${pct(stat.mean - stat.sd)})` }} />}
       </span>
-      <span className="w-28 text-right tabular-nums text-muted">{pm(stat)} <span className="text-[11px]">({runs} run{runs === 1 ? "" : "s"})</span></span>
+      <span className="w-28 text-right tabular-nums text-muted-foreground">{pm(stat)} <span className="text-[11px]">({runs} run{runs === 1 ? "" : "s"})</span></span>
     </div>
   );
 }
 
 function Table({ head, rows, className = "" }: { head: string[]; rows: string[][]; className?: string }) {
   return (
-    <div className={`overflow-x-auto rounded-xl border border-border bg-surface ${className}`}>
+    <div className={`card-chai overflow-x-auto ${className}`}>
       <table className="w-full min-w-[560px] text-left text-[13px] tabular-nums">
-        <thead className="border-b border-border text-muted">
+        <thead className="border-b border-border text-muted-foreground">
           <tr>{head.map((h, i) => <th key={h} className={`px-3 py-2.5 font-medium ${i > 1 ? "text-right" : ""}`}>{h}</th>)}</tr>
         </thead>
         <tbody className="text-fg-2">
@@ -219,7 +221,7 @@ function CostTable({ stages, prices }: { stages: [string, Stage][]; prices?: Rec
       rows.push([name, model, fmtTok(Math.round(pt / q)), fmtTok(Math.round(ct / q)), (calls / q).toFixed(1), usd == null ? "price not set" : fmtUsd(usd / q)]);
     }
   }
-  if (!rows.length) return <Card className="text-sm text-muted">No token usage recorded yet for this dataset.</Card>;
+  if (!rows.length) return <Card className="text-sm text-muted-foreground">No token usage recorded yet for this dataset.</Card>;
   return <Table head={["Stage", "Model", "Prompt tokens / question", "Completion tokens", "Calls", "Cost / question"]} rows={rows} />;
 }
 
@@ -232,7 +234,7 @@ function InjectionSection({ inj }: { inj: Injection }) {
         <Headline label="Attacks that worked, hardened" value={`${inj.success_total.on}/${n}`} sub="passages wrapped as untrusted data" />
         <Headline label="Scanner false positives" value={`${Object.keys(inj.clean_docs_flagged).length}/${inj.clean_docs_scanned}`} sub="clean documents flagged at ingest" />
       </div>
-      <p className="mt-3 max-w-2xl text-[13px] leading-relaxed text-muted">
+      <p className="mt-3 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
         The answer model resisted every attack even without the hardened prompt, so this test cannot show the hardening helps on this model; it shows the model was already robust to these payloads and that hardening does not hurt answers. The other defences (sanitising, scanning, blocking images in answers) do not depend on the model. Only one model and simple-to-moderate attacks were tested.
       </p>
     </Section>

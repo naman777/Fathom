@@ -26,5 +26,7 @@ export type Msg = {
   streaming?: boolean;
 };
 export type Doc = { id: number; title: string; source: string; chunks: number; stored?: boolean; flags?: Record<string, number> };
+/** Built-in sample corpus from GET /api/sample: files smallest first, plus the labelled evaluation questions. */
+export type Sample = { files: { name: string; title: string; kb: number }[]; questions: { question: string; docs: string[] }[] };
 export type Conv = { id: string; title: string; msgs: Msg[]; updated: number };
 export type Job = { id: string; name: string; pct: number; stage: "queued" | "uploading" | "indexing" | "done" | "error"; msg?: string };

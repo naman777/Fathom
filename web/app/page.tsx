@@ -2,12 +2,22 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Assistant from "./components/Assistant";
-import { Alert, Close, Download, File, Logo, Menu, Moon, Paperclip, Plus, Send, Sparkle, Stop, Sun, Trash, Upload } from "./components/icons";
+import { Backdrop } from "@/components/backdrop";
+import { ThemeSwitcher } from "@/components/theme-switcher";
+import { Alert as Notice } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Kbd } from "@/components/ui/kbd";
+import { Segmented } from "@/components/ui/segmented";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
+import { Alert as AlertIcon, Close, Download, File, Logo, Menu, Paperclip, Plus, Send, Stop, Trash, Upload } from "./components/icons";
 import SiteNav from "./components/SiteNav";
 import UploadToasts from "./components/UploadToasts";
 import UploadZone from "./components/UploadZone";
 import SourcesPanel, { type PanelState } from "./components/SourcesPanel";
-import type { Conv, Doc, Job, Msg } from "./components/types";
+import type { Conv, Doc, Job, Msg, Sample } from "./components/types";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -29,11 +39,12 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [docs, setDocs] = useState<Doc[]>([]);
   const [docsLoaded, setDocsLoaded] = useState(false);
+  const [sample, setSample] = useState<Sample | null>(null);
+  const [sampleBusy, setSampleBusy] = useState(false);
   const [agent, setAgent] = useState(true);
   const [rerank, setRerank] = useState(true);
   const [panel, setPanel] = useState<PanelState | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [dark, setDark] = useState(true);
   const [sidebar, setSidebar] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [pageDrag, setPageDrag] = useState(false);
@@ -41,18 +52,6 @@ export default function Home() {
   const scroller = useRef<HTMLDivElement>(null);
   const abort = useRef<AbortController | null>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    setDark(document.documentElement.dataset.theme !== "light");
-  }, []);
-  const toggleTheme = () => {
-    const next = dark ? "light" : "dark";
-    document.documentElement.dataset.theme = next;
-    try {
-      localStorage.setItem("fathom-theme", next);
-    } catch {}
-    setDark(!dark);
-  };
 
   const loadDocs = useCallback(async () => {
     try {
@@ -66,6 +65,12 @@ export default function Home() {
   useEffect(() => {
     loadDocs();
   }, [loadDocs]);
+  useEffect(() => {
+    fetch(`${API}/api/sample`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setSample)
+      .catch(() => {});
+  }, []);
 
   // keep pinned to the bottom while streaming
   useEffect(() => {
@@ -190,6 +195,9 @@ export default function Home() {
     }
   }
 
+  const sendRef = useRef(send);
+  sendRef.current = send;
+
   const patchJob = (id: string, p: Partial<Job>) => setJobs((js) => js.map((j) => (j.id === id ? { ...j, ...p } : j)));
 
   function sendFile(f: File, id: string): Promise<void> {
@@ -210,13 +218,13 @@ export default function Home() {
           loadDocs();
           setTimeout(() => setJobs((js) => js.filter((j) => j.id !== id)), 4000);
         } else {
-          const msg = xhr.status === 429 ? "Too many uploads — try again later" : body.detail || `Upload failed (${xhr.status})`;
+          const msg = xhr.status === 429 ? "Too many uploads, try again later" : body.detail || `Upload failed (${xhr.status})`;
           patchJob(id, { stage: "error", msg: String(msg) });
         }
         resolve();
       };
       xhr.onerror = () => {
-        patchJob(id, { stage: "error", msg: "Network error — is the server reachable?" });
+        patchJob(id, { stage: "error", msg: "Network error. Is the server reachable?" });
         resolve();
       };
       const fd = new FormData();
@@ -275,7 +283,7 @@ export default function Home() {
       const r = await fetch(`${API}/api/documents/${id}`, { method: "DELETE" });
       if (!r.ok) setNotice((await r.json().catch(() => ({}))).detail || "Delete failed");
     } catch {
-      setNotice("Delete failed — is the server reachable?");
+      setNotice("Delete failed. Is the server reachable?");
     }
     await loadDocs();
     setBusyDocs((b) => {
@@ -291,7 +299,7 @@ export default function Home() {
       if (!r.ok) setNotice((await r.json().catch(() => ({}))).detail || "Download failed");
       else window.open((await r.json()).url, "_blank", "noopener");
     } catch {
-      setNotice("Download failed — is the server reachable?");
+      setNotice("Download failed. Is the server reachable?");
     }
     setBusyDocs((b) => {
       const { [id]: _, ...rest } = b;
@@ -299,9 +307,57 @@ export default function Home() {
     });
   }
 
+  // Sample corpus: which of its files are indexed is derived from the document list, so it stays right after deletes.
+  const sources = new Set(docs.map((d) => d.source));
+  const sampleMissing = (sample?.files || []).filter((f) => !sources.has(f.name));
+  const sampleTitles = new Set((sample?.files || []).filter((f) => sources.has(f.name)).map((f) => f.title));
+  const sampleQs = (sample?.questions || []).filter((q) => q.docs.every((t) => sampleTitles.has(t)));
+  // The first question asked is one about the smallest file: it is indexed in a couple of seconds.
+  const leadQ = sample?.questions.find((q) => q.docs.length === 1 && q.docs[0] === sample.files[0]?.title);
+
+  async function loadSample() {
+    if (!sample || sampleBusy || !sampleMissing.length) return;
+    setSampleBusy(true);
+    setTab("docs");
+    const id = uid();
+    const todo = [...sampleMissing];
+    const st = { done: 0, total: todo.length, failed: "" };
+    const label = () => `Sample corpus · ${st.done}/${st.total} RFCs indexed`;
+    setJobs((js) => [...js, { id, name: label(), pct: 0, stage: "indexing" }]);
+    const one = async (f: Sample["files"][number]) => {
+      try {
+        const r = await fetch(`${API}/api/sample/${encodeURIComponent(f.name)}`, { method: "POST" });
+        if (!r.ok) st.failed = (await r.json().catch(() => ({}))).detail || `Could not load ${f.title} (${r.status})`;
+        else st.done++;
+      } catch {
+        st.failed = "Network error. Is the server reachable?";
+      }
+      patchJob(id, { name: label() });
+      loadDocs();
+    };
+    // The lead question's RFC goes first and is asked about straight away; the rest index once that answer is in, so
+    // bulk inserts do not compete with its retrieval.
+    const lead = todo.findIndex((f) => f.title === leadQ?.docs[0]);
+    if (lead >= 0) await one(todo.splice(lead, 1)[0]);
+    if (leadQ && !st.failed) await sendRef.current(leadQ.question);
+    await Promise.all([0, 1, 2].map(async () => {
+      for (let f; !st.failed && (f = todo.shift()); ) await one(f);
+    }));
+    if (st.failed) patchJob(id, { stage: "error", msg: st.failed });
+    else {
+      patchJob(id, { stage: "done", msg: `${st.total} RFCs indexed` });
+      setTimeout(() => setJobs((js) => js.filter((j) => j.id !== id)), 4000);
+    }
+    setSampleBusy(false);
+  }
+
   const totalChunks = docs.reduce((a, d) => a + d.chunks, 0);
+  const third = Math.floor(sampleQs.length / 3);
   const suggestions =
-    docs.length > 0
+    // Newest document is a sample RFC: offer the labelled evaluation questions instead of generic templates.
+    docs.length > 0 && sampleTitles.has(docs[0].title) && sampleQs.length >= 3
+      ? [sampleQs[0], sampleQs[third], sampleQs[2 * third]].map((q) => q.question)
+      : docs.length > 0
       ? [
           `Summarize the key facts about ${docs[0].title}`,
           docs.length > 1 ? `Compare ${docs[0].title} with ${docs[1].title}` : `What are the most important numbers in ${docs[0].title}?`,
@@ -309,50 +365,52 @@ export default function Home() {
         ]
       : [];
 
+  const confirmDoc = docs.find((d) => d.id === confirmId);
+
   return (
-    <div className="flex h-full bg-bg text-fg">
+    <div className="flex h-full bg-background text-foreground">
       {/* Sidebar */}
-      {sidebar && <div className="fixed inset-0 z-20 bg-black/50 md:hidden" onClick={() => setSidebar(false)} />}
+      {sidebar && <div className="fixed inset-0 z-20 bg-black/55 backdrop-blur-sm md:hidden" onClick={() => setSidebar(false)} />}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex w-[288px] shrink-0 flex-col border-r border-border bg-surface transition-transform md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-30 flex w-[288px] shrink-0 flex-col border-r border-border bg-surface transition-transform duration-300 md:static md:translate-x-0 ${
           sidebar ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex items-center gap-2.5 px-4 pb-3 pt-4">
           <Logo />
           <div className="leading-tight">
-            <div className="text-[15px] font-semibold tracking-tight">Fathom</div>
-            <div className="text-[11px] text-muted">Document intelligence</div>
+            <div className="font-onest text-xl font-medium tracking-tight">Fathom</div>
+            <div className="text-[11px] text-muted-foreground">Document intelligence</div>
           </div>
         </div>
 
         <div className="px-3">
-          <button
-            onClick={newChat}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent-strong px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:brightness-110"
-          >
+          <Button variant="outline" onClick={newChat} className="w-full">
             <Plus /> New chat
-          </button>
+          </Button>
         </div>
 
-        <div className="mx-3 mt-4 grid grid-cols-2 gap-1 rounded-lg bg-surface-2 p-1 text-xs font-medium">
-          {(["docs", "chats"] as const).map((t) => (
-            <button key={t} onClick={() => setTab(t)} className={`rounded-md py-1.5 transition ${tab === t ? "bg-surface text-fg shadow-sm" : "text-muted hover:text-fg-2"}`}>
-              {t === "docs" ? `Documents (${docs.length})` : `History (${convs.length})`}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label="Sidebar view"
+          className="mx-3 mt-4 [&>button]:flex-1"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "docs", label: `Documents (${docs.length})` },
+            { value: "chats", label: `History (${convs.length})` },
+          ]}
+        />
 
         {tab === "chats" && (
           <ul className="mt-3 flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
-            {convs.length === 0 && <li className="px-3 py-6 text-center text-xs text-muted">No saved chats yet.</li>}
+            {convs.length === 0 && <li className="px-3 py-6 text-center text-xs text-muted-foreground">No saved chats yet.</li>}
             {convs.map((c) => (
-              <li key={c.id} className={`group flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2 ${c.id === convId ? "bg-surface-2" : ""}`}>
+              <li key={c.id} className={`group flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors duration-200 hover:bg-surface-2 ${c.id === convId ? "bg-surface-2" : ""}`}>
                 <button onClick={() => openConv(c)} className="min-w-0 flex-1 text-left">
                   <div className="truncate text-fg-2">{c.title}</div>
-                  <div className="text-[11px] text-muted">{new Date(c.updated).toLocaleDateString()} · {Math.ceil(c.msgs.length / 2)} Q</div>
+                  <div className="text-[11px] text-muted-foreground">{new Date(c.updated).toLocaleDateString()} · {Math.ceil(c.msgs.length / 2)} Q</div>
                 </button>
-                <button onClick={() => deleteConv(c.id)} className="hidden text-muted hover:text-danger group-hover:block" aria-label="Delete chat">
+                <button onClick={() => deleteConv(c.id)} className="hidden text-muted-foreground hover:text-danger group-hover:block" aria-label="Delete chat">
                   <Trash width={14} height={14} />
                 </button>
               </li>
@@ -362,151 +420,147 @@ export default function Home() {
 
         {tab === "docs" && (
           <>
-        <div className="mt-5 flex items-center justify-between px-4 text-[11px] font-medium uppercase tracking-wider text-muted">
-          <span>Knowledge base</span>
-          <span className="normal-case tracking-normal tabular-nums">
-            {docs.length} docs · {totalChunks} chunks
-          </span>
-        </div>
+            <div className="mt-5 flex items-center justify-between px-4 text-xs font-medium text-muted-foreground">
+              <span>Knowledge base</span>
+              <span className="tabular-nums">
+                {docs.length} docs · {totalChunks} chunks
+              </span>
+            </div>
 
-        <div className="px-3 pt-2">
-          <label
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragging(true);
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragging(false);
-              upload(e.dataTransfer.files);
-            }}
-            className={`flex cursor-pointer flex-col items-center gap-1 rounded-xl border border-dashed px-3 py-3.5 text-center text-xs transition ${
-              dragging ? "border-accent bg-accent-soft text-accent" : "border-border-strong text-muted hover:border-accent/60 hover:text-fg-2"
-            }`}
-          >
-            <Upload width={18} height={18} />
-            <span className="font-medium">{dragging ? "Release to upload" : "Drop files or click to upload"}</span>
-            <span className="text-[11px] opacity-70">.txt · .md · .pdf · multiple files OK</span>
-            <input type="file" multiple accept=".txt,.md,.pdf" className="hidden" onChange={(e) => (upload(e.target.files), (e.target.value = ""))} />
-          </label>
-        </div>
+            <div className="px-3 pt-2">
+              <label
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragging(false);
+                  upload(e.dataTransfer.files);
+                }}
+                className={`flex cursor-pointer flex-col items-center gap-1 rounded-xl border border-dashed px-3 py-3.5 text-center text-xs transition-colors duration-200 ${
+                  dragging ? "border-card-edge-hover bg-foreground/[0.06] text-foreground" : "border-border-strong text-muted-foreground hover:border-card-edge-hover hover:text-fg-2"
+                }`}
+              >
+                <Upload width={18} height={18} />
+                <span className="font-medium">{dragging ? "Release to upload" : "Drop files or click to upload"}</span>
+                <span className="text-[11px] opacity-70">.txt · .md · .pdf · multiple files OK</span>
+                <input type="file" multiple accept=".txt,.md,.pdf" className="hidden" onChange={(e) => (upload(e.target.files), (e.target.value = ""))} />
+              </label>
+            </div>
 
-        <ul className="mt-2 flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
-          {!docsLoaded && [0, 1, 2, 3].map((i) => <li key={i} className="shimmer mx-1 my-1.5 h-8 rounded-lg" />)}
-          {docsLoaded && docs.length === 0 && <li className="px-3 py-6 text-center text-xs text-muted">No documents yet.</li>}
-          {docs.map((d) => {
-            const st = busyDocs[d.id];
-            return (
-              <li key={d.id} className={`group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2 ${st === "deleting" ? "opacity-50" : ""}`}>
-                <File width={15} height={15} className="shrink-0 text-muted" />
-                <span className="flex-1 truncate text-fg-2" title={d.title}>
-                  {d.title}
-                </span>
-                {st ? (
-                  <span className="flex items-center gap-1.5 text-[11px] text-muted">
-                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
-                    {st === "deleting" ? "Deleting…" : "Preparing…"}
-                  </span>
-                ) : confirmId === d.id ? (
-                  <span className="flex items-center gap-1 text-[11px]">
-                    <span className="text-muted">Delete?</span>
-                    <button onClick={() => removeDoc(d.id)} className="rounded px-1.5 py-0.5 font-medium text-danger hover:bg-danger/10">Yes</button>
-                    <button onClick={() => setConfirmId(null)} className="rounded px-1.5 py-0.5 text-muted hover:bg-surface-3">No</button>
-                  </span>
-                ) : (
-                  <>
-                    {d.flags && Object.keys(d.flags).length > 0 && (
-                      <span className="text-warning" title={`Contains instruction-like text (${Object.keys(d.flags).join(", ")}). Fathom treats document text as data, not instructions.`}>
-                        <Alert width={13} height={13} />
+            <ul className="mt-2 flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
+              {!docsLoaded && [0, 1, 2, 3].map((i) => <li key={i}><Skeleton className="mx-1 my-1.5 h-8" /></li>)}
+              {docsLoaded && docs.length === 0 && <li className="px-3 py-6 text-center text-xs text-muted-foreground">No documents yet.</li>}
+              {docs.map((d) => {
+                const st = busyDocs[d.id];
+                return (
+                  <li key={d.id} className={`group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors duration-200 hover:bg-surface-2 ${st === "deleting" ? "opacity-50" : ""}`}>
+                    <File width={15} height={15} className="shrink-0 text-muted-foreground" />
+                    <span className="flex-1 truncate text-fg-2" title={d.title}>
+                      {d.title}
+                    </span>
+                    {st ? (
+                      <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <Spinner label={st === "deleting" ? "Deleting" : "Preparing download"} className="[&_svg]:size-3" />
+                        {st === "deleting" ? "Deleting…" : "Preparing…"}
                       </span>
+                    ) : (
+                      <>
+                        {d.flags && Object.keys(d.flags).length > 0 && (
+                          <span className="text-warning" title={`Contains instruction-like text (${Object.keys(d.flags).join(", ")}). Fathom treats document text as data, not instructions.`}>
+                            <AlertIcon width={13} height={13} />
+                          </span>
+                        )}
+                        <span className="text-[11px] tabular-nums text-muted-foreground" title={`${d.chunks} passages`}>{d.chunks}</span>
+                        {d.stored && (
+                          <button onClick={() => downloadDoc(d.id)} className="text-muted-foreground opacity-60 hover:text-foreground group-hover:opacity-100" aria-label={`Download ${d.title}`} title="Download original">
+                            <Download width={14} height={14} />
+                          </button>
+                        )}
+                        <button onClick={() => setConfirmId(d.id)} className="text-muted-foreground opacity-60 hover:text-danger group-hover:opacity-100" aria-label={`Delete ${d.title}`} title="Delete">
+                          <Trash width={14} height={14} />
+                        </button>
+                      </>
                     )}
-                    <span className="text-[11px] tabular-nums text-muted" title={`${d.chunks} passages`}>{d.chunks}</span>
-                    {d.stored && (
-                      <button onClick={() => downloadDoc(d.id)} className="text-muted opacity-60 hover:text-fg group-hover:opacity-100" aria-label={`Download ${d.title}`} title="Download original">
-                        <Download width={14} height={14} />
-                      </button>
-                    )}
-                    <button onClick={() => setConfirmId(d.id)} className="text-muted opacity-60 hover:text-danger group-hover:opacity-100" aria-label={`Delete ${d.title}`} title="Delete">
-                      <Trash width={14} height={14} />
-                    </button>
-                  </>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+                  </li>
+                );
+              })}
+            </ul>
           </>
         )}
 
         <div className="space-y-2.5 border-t border-border p-4 text-sm">
-          <div className="text-[11px] font-medium uppercase tracking-wider text-muted">Pipeline</div>
-          <Toggle label="Agent loop" hint="Decompose & multi-hop" on={agent} set={setAgent} />
+          <div className="text-xs font-medium text-muted-foreground">Pipeline</div>
+          <Toggle label="Agent loop" hint="Decompose and multi-hop" on={agent} set={setAgent} />
           <Toggle label="Reranker" hint="Better precision, slower" on={rerank} set={setRerank} />
         </div>
       </aside>
 
       {/* Main */}
-      <main className="relative flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-bg/80 px-4 backdrop-blur">
-          <div className="flex items-center gap-3">
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <Backdrop />
+        <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
+          <div className="flex min-w-0 items-center gap-1 sm:gap-3">
             <button className="rounded-lg p-1.5 text-fg-2 hover:bg-surface-2 md:hidden" onClick={() => setSidebar(true)} aria-label="Open menu">
               <Menu width={18} height={18} />
             </button>
             <div className="hidden text-sm font-medium text-fg-2 lg:block">{msgs.length ? "Conversation" : "New conversation"}</div>
-            <SiteNav />
+            <SiteNav compact />
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => picker.current?.click()}
-              className="flex items-center gap-1.5 rounded-lg bg-accent-strong px-3 py-2 text-[13px] font-medium text-white shadow-sm transition hover:brightness-110"
-              title="Upload documents (.txt, .md, .pdf) — or drop files anywhere"
-            >
+            <Button variant="solid" size="sm" iconRight={null} onClick={() => picker.current?.click()} aria-label="Upload documents" className="max-sm:px-2.5" title="Upload documents (.txt, .md, .pdf), or drop files anywhere">
               <Upload width={15} height={15} />
               <span className="hidden sm:inline">Upload documents</span>
-              <span className="sm:hidden">Upload</span>
-            </button>
+            </Button>
             <input ref={picker} type="file" multiple accept=".txt,.md,.pdf" className="hidden" onChange={(e) => (upload(e.target.files), (e.target.value = ""))} />
-            <span className="hidden items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] text-muted xl:flex">
+            <span className="hidden items-center gap-1.5 rounded-full border border-border-strong px-2.5 py-1 text-[11px] text-muted-foreground xl:flex">
               <span className={`h-1.5 w-1.5 rounded-full ${notice?.includes("API") ? "bg-danger" : "bg-success"}`} />
               Hybrid search · {rerank ? "rerank on" : "rerank off"}
             </span>
-            <button onClick={toggleTheme} className="rounded-lg border border-border bg-surface p-2 text-fg-2 hover:bg-surface-2" aria-label="Toggle theme">
-              {dark ? <Sun /> : <Moon />}
-            </button>
+            <ThemeSwitcher />
           </div>
         </header>
 
         {notice && (
-          <div className="mx-4 mt-3 flex items-center justify-between rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
-            <span>{notice}</span>
-            <button onClick={() => setNotice(null)} aria-label="Dismiss">
-              <Close width={14} height={14} />
-            </button>
-          </div>
+          <Notice tone="warning" className="mx-4 mt-3 items-center justify-between bg-background/60 py-2 text-xs backdrop-blur-sm [&>div]:flex-1">
+            <span className="flex items-center justify-between gap-3">
+              {notice}
+              <button onClick={() => setNotice(null)} aria-label="Dismiss">
+                <Close width={14} height={14} />
+              </button>
+            </span>
+          </Notice>
         )}
 
         <div ref={scroller} className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-3xl space-y-7 px-4 py-8">
             {msgs.length === 0 && (
-              <div className="fade-up pt-[8vh] text-center">
-                <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft text-accent">
-                  <Sparkle width={22} height={22} />
-                </div>
-                <h2 className="text-2xl font-semibold tracking-tight">What would you like to know?</h2>
-                <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-                  Ask across your documents. Answers are grounded in retrieved passages and cite their sources.
+              <div className="fade-up pt-[6vh] text-center">
+                <h1 className="text-2xl font-medium sm:text-3xl">What would you like to know?</h1>
+                <p className="mx-auto mt-3 max-w-md text-base text-neutral-700 dark:text-neutral-400">
+                  Ask across your documents. Answers are grounded in retrieved passages and <span className="highlight">cite their sources</span>.
                 </p>
                 <div className="mt-8">
                   <UploadZone onFiles={upload} busy={uploading} hasDocs={docs.length > 0} />
                 </div>
+                {sample && docsLoaded && sampleMissing.length > 0 && (
+                  <div className="card-chai mx-auto mt-3 flex max-w-xl items-center gap-4 px-4 py-3 text-left">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-montserrat text-[13px] font-semibold">No files handy? Try the sample corpus</div>
+                      <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
+                        {sample.files.length} IETF RFCs (TCP, DNS, TLS 1.3, QUIC, OAuth 2.0, JWT…), the set Fathom is evaluated on. Loads them and asks a first question.
+                      </p>
+                    </div>
+                    <Button variant="muted" size="sm" onClick={loadSample} disabled={sampleBusy || busy} className="shrink-0">
+                      {sampleBusy ? "Loading…" : "Load sample"}
+                    </Button>
+                  </div>
+                )}
                 <div className="mx-auto mt-6 grid max-w-xl gap-2.5">
                   {suggestions.map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => send(s)}
-                      className="rounded-xl border border-border bg-surface px-4 py-3 text-left text-sm text-fg-2 shadow-sm transition hover:-translate-y-px hover:border-accent/50 hover:bg-surface-2 hover:text-fg"
-                    >
+                    <button key={s} onClick={() => send(s)} className="card-chai px-4 py-3 text-left text-sm text-fg-2 hover:text-foreground sm:opacity-90 sm:hover:opacity-100">
                       {s}
                     </button>
                   ))}
@@ -516,7 +570,7 @@ export default function Home() {
             {msgs.map((m, i) =>
               m.role === "user" ? (
                 <div key={i} className="fade-up flex justify-end">
-                  <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent-strong px-4 py-2.5 text-sm leading-relaxed text-white shadow-sm">
+                  <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-secondary px-4 py-2.5 text-sm leading-relaxed text-secondary-foreground">
                     {m.content}
                   </div>
                 </div>
@@ -532,20 +586,19 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Composer */}
-        <div className="shrink-0 bg-gradient-to-t from-bg via-bg to-transparent px-4 pb-4 pt-2">
+        <div className="px-4 pb-4 pt-2">
           <form
+            className="mx-auto max-w-3xl"
             onSubmit={(e) => {
               e.preventDefault();
               send(input);
             }}
-            className="mx-auto max-w-3xl"
           >
-            <div className="flex items-end gap-2 rounded-2xl border border-border-strong bg-surface p-2 shadow-[var(--shadow)] transition focus-within:border-accent">
+            <div className="flex items-end gap-2 rounded-2xl border border-card-edge bg-background/60 p-2 backdrop-blur-sm transition-colors duration-300 focus-within:border-card-edge-hover">
               <button
                 type="button"
                 onClick={() => picker.current?.click()}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted transition hover:bg-surface-2 hover:text-fg"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 hover:bg-surface-2 hover:text-foreground"
                 aria-label="Upload documents"
                 title="Upload documents"
               >
@@ -563,38 +616,51 @@ export default function Home() {
                   }
                 }}
                 maxLength={1000}
-                placeholder="Ask a question about your documents…"
-                className="max-h-[180px] flex-1 resize-none bg-transparent px-2.5 py-2 text-sm text-fg outline-none placeholder:text-muted"
+                placeholder="Ask about your documents…"
+                aria-label="Question"
+                className="max-h-[180px] flex-1 resize-none bg-transparent px-2.5 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
               />
               {busy ? (
-                <button type="button" onClick={() => abort.current?.abort()} className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-3 text-fg hover:bg-border-strong" aria-label="Stop generating">
+                <Button type="button" variant="ghost" size="icon" onClick={() => abort.current?.abort()} aria-label="Stop generating" className="bg-surface-3">
                   <Stop width={14} height={14} />
-                </button>
+                </Button>
               ) : (
-                <button
-                  disabled={!input.trim()}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-strong text-white transition hover:brightness-110 disabled:bg-surface-3 disabled:text-muted"
-                  aria-label="Send"
-                >
+                <Button type="submit" size="icon" disabled={!input.trim()} aria-label="Send">
                   <Send />
-                </button>
+                </Button>
               )}
             </div>
-            <p className="mt-2 text-center text-[11px] text-muted">Enter to send · Shift+Enter for a new line · Answers may contain errors — check the sources.</p>
+            <p className="mt-2 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-center text-[11px] text-muted-foreground">
+              <Kbd>Enter</Kbd> to send · <Kbd>Shift</Kbd> <Kbd>Enter</Kbd> for a new line · Answers may contain errors, so check the sources.
+            </p>
           </form>
         </div>
       </main>
 
       {pageDrag && (
-        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-3 rounded-3xl border-2 border-dashed border-accent bg-surface px-14 py-12 text-center shadow-[var(--shadow)]">
-            <Upload width={34} height={34} className="text-accent" />
-            <div className="text-lg font-semibold">Drop to upload</div>
-            <div className="text-sm text-muted">.txt · .md · .pdf</div>
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-card-edge-hover bg-card px-14 py-12 text-center">
+            <Upload width={34} height={34} className="text-highlight" />
+            <div className="font-montserrat text-lg font-semibold">Drop to upload</div>
+            <div className="text-sm text-muted-foreground">.txt · .md · .pdf</div>
           </div>
         </div>
       )}
       <UploadToasts jobs={jobs} onDismiss={(id) => setJobs((js) => js.filter((j) => j.id !== id))} />
+
+      <ConfirmDialog
+        open={!!confirmDoc}
+        title={`Delete ${confirmDoc?.title ?? "this document"}?`}
+        confirmLabel="Delete document"
+        cancelLabel="Keep it"
+        typeToConfirm="delete"
+        onConfirm={() => confirmDoc && removeDoc(confirmDoc.id)}
+        onCancel={() => setConfirmId(null)}
+      >
+        This removes the document and its {confirmDoc?.chunks ?? 0} indexed passages from the knowledge base
+        {confirmDoc?.stored ? ", and deletes the stored original file" : ""}. The knowledge base is shared, so it disappears for everyone using this
+        Fathom, and new answers can no longer cite it. This cannot be undone.
+      </ConfirmDialog>
 
       {panel && (
         <SourcesPanel
@@ -607,7 +673,6 @@ export default function Home() {
           }}
         />
       )}
-
     </div>
   );
 }
@@ -617,14 +682,12 @@ const citedOf = (m: Msg) =>
 
 function Toggle({ label, hint, on, set }: { label: string; hint: string; on: boolean; set: (v: boolean) => void }) {
   return (
-    <button type="button" role="switch" aria-checked={on} onClick={() => set(!on)} className="flex w-full items-center justify-between gap-3 text-left">
+    <label className="flex w-full cursor-pointer items-center justify-between gap-3">
       <span>
         <span className="block text-[13px] font-medium text-fg-2">{label}</span>
-        <span className="block text-[11px] text-muted">{hint}</span>
+        <span className="block text-[11px] text-muted-foreground">{hint}</span>
       </span>
-      <span className={`relative h-5 w-9 shrink-0 rounded-full transition ${on ? "bg-accent-strong" : "bg-surface-3"}`}>
-        <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${on ? "left-[18px]" : "left-0.5"}`} />
-      </span>
-    </button>
+      <Switch checked={on} onCheckedChange={set} aria-label={label} />
+    </label>
   );
 }
