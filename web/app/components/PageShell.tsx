@@ -1,36 +1,35 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Moon, Sun } from "./icons";
+import { Backdrop } from "@/components/backdrop";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import SiteNav, { Brand } from "./SiteNav";
 
-/** Header + centred content column for the non-chat pages. */
-export default function PageShell({ title, lead, children }: { title: string; lead: string; children: React.ReactNode }) {
-  const [dark, setDark] = useState(true);
-  useEffect(() => setDark(document.documentElement.dataset.theme !== "light"), []);
-  const toggle = () => {
-    const next = dark ? "light" : "dark";
-    document.documentElement.dataset.theme = next;
-    try {
-      localStorage.setItem("fathom-theme", next);
-    } catch {}
-    setDark(!dark);
-  };
+/** Backdrop, sticky header and the centred max-w-6xl column for the non-chat pages. */
+export default function PageShell({ title, lead, children }: { title: string; lead: React.ReactNode; children: React.ReactNode }) {
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const on = () => setScrolled(window.scrollY > 0);
+    on();
+    window.addEventListener("scroll", on, { passive: true });
+    return () => window.removeEventListener("scroll", on);
+  }, []);
   return (
-    <div className="min-h-full bg-bg text-fg">
-      <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b border-border bg-bg/85 px-4 backdrop-blur">
-        <div className="flex items-center gap-4">
-          <Brand />
-          <SiteNav />
-        </div>
-        <button onClick={toggle} className="rounded-lg border border-border bg-surface p-2 text-fg-2 hover:bg-surface-2" aria-label="Toggle theme">
-          {dark ? <Sun /> : <Moon />}
-        </button>
+    <div className="min-h-full">
+      <Backdrop />
+      <header className={`sticky top-0 z-20 transition-[backdrop-filter,background] duration-300 ${scrolled ? "bg-background/60 backdrop-blur-md" : "bg-transparent"}`}>
+        <nav className="flex items-center justify-between gap-5 px-6 py-5 sm:px-12" aria-label="Site">
+          <div className="flex items-center gap-4 sm:gap-6">
+            <Brand />
+            <SiteNav compact />
+          </div>
+          <ThemeSwitcher />
+        </nav>
       </header>
-      <main className="mx-auto max-w-5xl px-4 pb-24 pt-10">
-        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
-        <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-muted">{lead}</p>
-        <div className="mt-10 space-y-14">{children}</div>
+      <main className="mx-auto max-w-6xl p-6 pb-24 sm:p-12 sm:pb-24">
+        <h1 className="text-2xl font-medium sm:text-center sm:text-3xl">{title}</h1>
+        <p className="mx-auto mt-3 max-w-3xl text-base text-neutral-700 sm:text-center md:text-lg dark:text-neutral-400">{lead}</p>
+        <div className="mt-12 space-y-16 sm:space-y-20">{children}</div>
       </main>
     </div>
   );
@@ -38,14 +37,14 @@ export default function PageShell({ title, lead, children }: { title: string; le
 
 export function Section({ id, title, children, note }: { id?: string; title: string; children: React.ReactNode; note?: string }) {
   return (
-    <section id={id} className="scroll-mt-20">
-      <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-      {note && <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-muted">{note}</p>}
-      <div className="mt-4">{children}</div>
+    <section id={id} className="scroll-mt-24">
+      <h2 className="text-2xl font-medium sm:text-[30px]">{title}</h2>
+      {note && <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">{note}</p>}
+      <div className="mt-5">{children}</div>
     </section>
   );
 }
 
 export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <div className={`rounded-xl border border-border bg-surface p-4 ${className}`}>{children}</div>;
+  return <div className={`card-chai p-4 ${className}`}>{children}</div>;
 }

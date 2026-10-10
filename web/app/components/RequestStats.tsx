@@ -22,7 +22,7 @@ export default function RequestStats({ meta }: { meta: Meta }) {
   const shares = Object.entries(meta.stage_share_pct);
   return (
     <div className="w-full">
-      <button onClick={() => setOpen(!open)} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md px-1.5 py-1 text-left text-[11px] tabular-nums text-muted hover:bg-surface-2 hover:text-fg" aria-expanded={open}>
+      <button onClick={() => setOpen(!open)} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md px-1.5 py-1 text-left text-[11px] tabular-nums text-muted-foreground hover:bg-surface-2 hover:text-foreground" aria-expanded={open}>
         <span title={unpriced ? `No price configured for: ${meta.unpriced_models.join(", ")}. Set MODEL_PRICES in .env to include them.` : "Estimated from token usage and configured prices"}>
           {cost}
         </span>
@@ -39,32 +39,32 @@ export default function RequestStats({ meta }: { meta: Meta }) {
         <Chevron width={12} height={12} className={`transition ${open ? "-rotate-90" : "rotate-90"}`} />
       </button>
       {open && (
-        <div className="fade-up mt-1.5 space-y-3 rounded-xl border border-border bg-surface p-3 text-xs">
+        <div className="fade-up card-chai mt-1.5 space-y-3 p-3 text-xs">
           <div>
             <div className="mb-1.5 font-medium text-fg-2">Where the time went</div>
             <ul className="space-y-1">
               {shares.map(([k, pct]) => (
                 <li key={k} className="flex items-center gap-2">
-                  <span className="w-24 shrink-0 text-muted">{STAGE_LABEL[k] ?? k}</span>
+                  <span className="w-24 shrink-0 text-muted-foreground">{STAGE_LABEL[k] ?? k}</span>
                   <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-3">
-                    <span className="block h-full rounded-full bg-accent" style={{ width: `${Math.max(pct, 2)}%` }} />
+                    <span className="block h-full rounded-full bg-primary" style={{ width: `${Math.max(pct, 2)}%` }} />
                   </span>
-                  <span className="w-16 shrink-0 text-right tabular-nums text-muted">{sec(meta.stages_ms[k])} · {Math.round(pct)}%</span>
+                  <span className="w-16 shrink-0 text-right tabular-nums text-muted-foreground">{sec(meta.stages_ms[k])} · {Math.round(pct)}%</span>
                 </li>
               ))}
             </ul>
-            <div className="mt-1 text-[11px] text-muted">Stage times are summed busy time; parallel searches overlap, so they can add up to more than the {sec(meta.wall_ms)} wall time. First token at {sec(meta.first_token_ms)}.</div>
+            <div className="mt-1 text-[11px] text-muted-foreground">Stage times are summed busy time; parallel searches overlap, so they can add up to more than the {sec(meta.wall_ms)} wall time. First token at {sec(meta.first_token_ms)}.</div>
           </div>
           <div>
             <div className="mb-1.5 font-medium text-fg-2">Models</div>
             <table className="w-full text-left tabular-nums">
-              <thead className="text-muted">
+              <thead className="text-muted-foreground">
                 <tr><th className="pb-1 font-normal">Model</th><th className="pb-1 text-right font-normal">Prompt</th><th className="pb-1 text-right font-normal">Completion</th><th className="pb-1 text-right font-normal">Calls</th></tr>
               </thead>
               <tbody>
                 {Object.entries(meta.usage).map(([m, [p, c, n]]) => (
                   <tr key={m} className="border-t border-border">
-                    <td className="py-1 text-fg-2">{m}{meta.unpriced_models.includes(m) && <span className="ml-1.5 rounded bg-warning/15 px-1 text-[10px] text-warning">no price</span>}</td>
+                    <td className="py-1 text-fg-2">{m}{meta.unpriced_models.includes(m) && <span className="ml-1.5 rounded border border-warning/40 px-1 text-[10px] text-warning">no price</span>}</td>
                     <td className="py-1 text-right">{p.toLocaleString()}</td>
                     <td className="py-1 text-right">{c.toLocaleString()}</td>
                     <td className="py-1 text-right">{n}</td>
@@ -73,7 +73,7 @@ export default function RequestStats({ meta }: { meta: Meta }) {
               </tbody>
             </table>
           </div>
-          <div className="text-[11px] text-muted">Trace <code className="rounded bg-surface-2 px-1 py-0.5 font-mono text-fg-2">{meta.trace_id}</code> — also in the server log and the <code className="font-mono">X-Trace-Id</code> response header.</div>
+          <div className="text-[11px] text-muted-foreground">Trace <code className="rounded bg-surface-2 px-1 py-0.5 font-mono text-fg-2">{meta.trace_id}</code>, also in the server log and the <code className="font-mono">X-Trace-Id</code> response header.</div>
         </div>
       )}
     </div>

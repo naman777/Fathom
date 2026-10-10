@@ -14,15 +14,9 @@ const base = (p: SVGProps<SVGSVGElement>) => ({
 
 export const Logo = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base({ width: 28, height: 28, ...p })} viewBox="0 0 32 32" stroke="none">
-    <defs>
-      <linearGradient id="lg" x1="0" y1="0" x2="32" y2="32">
-        <stop stopColor="#8b9bff" />
-        <stop offset="1" stopColor="#5b6cf5" />
-      </linearGradient>
-    </defs>
-    <rect width="32" height="32" rx="9" fill="url(#lg)" />
-    <path d="M9 22V10h10M9 16h7" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-    <circle cx="22.5" cy="21.5" r="2.4" fill="#fff" />
+    <rect width="32" height="32" rx="9" fill="var(--foreground)" />
+    <path d="M9 22V10h10M9 16h7" stroke="var(--background)" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    <circle cx="22.5" cy="21.5" r="2.4" fill="var(--background)" />
   </svg>
 );
 export const Plus = (p: SVGProps<SVGSVGElement>) => <svg {...base(p)}><path d="M12 5v14M5 12h14" /></svg>;

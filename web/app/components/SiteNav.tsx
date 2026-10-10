@@ -22,8 +22,8 @@ export default function SiteNav({ compact = false }: { compact?: boolean }) {
             key={l.href}
             href={l.href}
             aria-current={active ? "page" : undefined}
-            className={`rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition ${
-              active ? "bg-accent-soft text-accent" : "text-muted hover:bg-surface-2 hover:text-fg"
+            className={`rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors duration-200 hover:text-brand ${
+              active ? "text-foreground" : "text-muted-foreground"
             } ${compact && l.href === "/" ? "hidden sm:block" : ""}`}
           >
             {l.label}
@@ -38,7 +38,7 @@ export function Brand() {
   return (
     <Link href="/" className="flex items-center gap-2.5">
       <Logo />
-      <span className="text-[15px] font-semibold tracking-tight">Fathom</span>
+      <span className="font-onest text-xl font-medium tracking-tight">Fathom</span>
     </Link>
   );
 }
