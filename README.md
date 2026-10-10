@@ -217,6 +217,8 @@ Everything is read from `.env` (see `.env.example`). Only the first two are requ
 | `GET /api/documents` | list documents with chunk counts |
 | `POST /api/documents` | upload a `.txt`/`.md`/`.pdf` (multipart field `file`); stored in S3 when `AWS_S3_BUCKET` is set |
 | `DELETE /api/documents/{id}` | delete a document and its chunks (rate limited, no authentication) |
+| `GET /api/sample` | the built-in sample corpus (the 11 evaluation RFCs, smallest first) and its 20 labelled questions |
+| `POST /api/sample/{name}` | index one sample file, cleaned as for the evaluation; skipped if already present (rate limited) |
 | `POST /api/chat` | body `{question, history?, agent?, rerank?}`; responds with an SSE stream and an `X-Trace-Id` header |
 | `GET /api/stats` | latency, tokens, cost and stage shares aggregated over the last 200 requests, plus the configured price table |
 | `GET /api/eval-results` | saved evaluation summaries (feeds the Results page) |
@@ -238,6 +240,8 @@ Chat SSE events: `meta` (trace id), `trace` (plan / search / results / reflect /
   each answer, timing (retrieval / first token / total), copy button, stop-generation button.
 - **Reasoning trace**: live progress ("Planning searches...", "Searching: ...") that folds into a summary such as
   "Reasoned in 3 searches" and can be expanded to show the plan, each query, passages retrieved and the reflection result.
+- **Sample corpus**: while any of the 11 evaluation RFCs is missing, the empty chat offers **Load sample**. One click
+  indexes the smallest RFC, asks a labelled question about it, then indexes the rest in the background.
 - **Sidebar**: knowledge-base list with drag-and-drop upload and delete, saved **History** (stored in this browser's
   `localStorage`, last 30 chats), and switches for the agent loop and reranker.
 - **Polish**: light/dark theme with saved preference, responsive layout with a slide-in sidebar on mobile, friendly

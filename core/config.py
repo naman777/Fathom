@@ -87,6 +87,7 @@ MAX_QUESTION_CHARS = _int("MAX_QUESTION_CHARS", 1000)
 MAX_UPLOAD_MB = _int("MAX_UPLOAD_MB", 10)
 TRUST_PROXY = _bool("TRUST_PROXY", False)
 RL_DELETE_PER_HOUR = _int("RATE_LIMIT_DELETE_PER_HOUR", 20)
+RL_SAMPLE_PER_HOUR = _int("RATE_LIMIT_SAMPLE_PER_HOUR", 30)
 # Comma-separated allowed browser origins, or "*" (dev only). E.g. https://fathom.example.com
 CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",") if o.strip()]
 

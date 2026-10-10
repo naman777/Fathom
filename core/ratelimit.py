@@ -6,6 +6,7 @@ Configured from .env (all optional):
   RATE_LIMIT_CHAT_PER_DAY=100         # /api/chat calls per IP per 24h (the real bill cap)
   RATE_LIMIT_UPLOAD_PER_HOUR=10       # document uploads per IP per hour
   RATE_LIMIT_DELETE_PER_HOUR=20       # document deletions per IP per hour
+  RATE_LIMIT_SAMPLE_PER_HOUR=30       # sample-corpus files indexed per IP per hour (the corpus has 11)
   RATE_LIMIT_GLOBAL_PER_MINUTE=120    # any /api request per IP per minute
   MAX_QUESTION_CHARS=1000
   MAX_UPLOAD_MB=10
@@ -30,6 +31,7 @@ RULES = [
     ("chat-day", "/api/chat", "POST", "CHAT_PER_DAY", 86400),
     ("upload-hour", "/api/documents", "POST", "UPLOAD_PER_HOUR", 3600),
     ("delete-hour", "/api/documents", "DELETE", "DELETE_PER_HOUR", 3600),
+    ("sample-hour", "/api/sample", "POST", "SAMPLE_PER_HOUR", 3600),
 ]
 
 
