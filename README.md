@@ -70,6 +70,10 @@ One Postgres database holds both indexes:
 ### 3. Hybrid retrieval (`retrieval/`)
 - `lexical.py`: Postgres full-text search (`ts_rank_cd`) with OR semantics so long natural-language questions still match.
 - `dense.py`: cosine similarity over the HNSW index; query embeddings are cached in-process so repeat queries are free.
+- `hyde.py` (optional, `HYDE=true`): HyDE. A model writes the passage a document would contain to answer the question;
+  the dense leg searches with the mean of that passage's embedding and the question's. Lexical search and the reranker
+  still use the original question. Costs one LLM call per new query (cached); **not yet measured**, so off by default.
+  Compare with `python -m eval.run_eval --skip-e2e --hyde --out results_hyde`.
 - `fuse.py`: Reciprocal Rank Fusion (`k=60`) over the two ranked lists of 20 candidates each.
 - `rerank.py`: the top 20 fused candidates are scored 0-9 in **one** short LLM call (default `gpt-6-luna`); the best `k`
   are kept. `rerank_local.py` is an optional API-free alternative (see [Configuration](#configuration)).
@@ -116,7 +120,7 @@ core/                config.py (env, prices), llm.py (OpenAI wrapper + token acc
                      db.py (schema), ratelimit.py (per-IP limiter), storage.py (S3)
 ingest/              chunking.py, context.py (contextual headers), safety.py (injection scan), pipeline.py
                      (CLI: python -m ingest.pipeline [path])
-retrieval/           lexical.py (4 modes), dense.py, fuse.py, rerank.py, rerank_local.py, expand.py, search.py
+retrieval/           lexical.py (4 modes), dense.py, fuse.py, hyde.py, rerank.py, rerank_local.py, expand.py, search.py
 agent/               loop.py (plan -> parallel search -> reflect -> follow-up)
 generation/          prompt.py (grounded prompts, blocking and streaming)
 api/                 main.py (FastAPI: chat SSE, documents CRUD, health)
@@ -194,6 +198,7 @@ Everything is read from `.env` (see `.env.example`). Only the first two are requ
 | `CHUNK_HEADERS` | `false` | prefix each new chunk with `[title - description > section]` (one small LLM call per document) |
 | `LEXICAL_MODE` | `websearch` | `or`, `or_norm`, `websearch` or `trigram` (see Retrieval upgrades) |
 | `NEIGHBOR_EXPAND` | `1` | neighbouring chunks per side handed to the answerer with each hit (0 = off; about +40-50% tokens per question) |
+| `HYDE`, `HYDE_MODEL` | `false`, `gpt-6-luna` | HyDE: vector search with a hypothetical answer passage averaged with the question (one extra LLM call per new query; unmeasured) |
 | `MAX_FOLLOWUPS` | `1` | follow-up searches the agent may make after reflecting |
 | `MODEL_PRICES` | built in: `gpt-6-luna` $0.10/$0.50, `gpt-4.1-mini` $0.40/$1.60, `text-embedding-3-small` $0.02 | JSON `{"model": [usd_per_1M_input, usd_per_1M_output]}` to override or add models |
 | `PROMPT_HARDENING` | `true` | wrap retrieved passages as untrusted data in every prompt (turn off only for the injection test) |
@@ -257,7 +262,7 @@ also set a monthly budget cap in the OpenAI dashboard.
 
 Every chat request gets a **trace id**, and everything that happens inside it reports to that trace (`core/obs.py`):
 
-- **Stage timings**: `embed`, `lexical`, `dense`, `rerank`, `plan`, `reflect`, `answer`. Times are *summed busy time*, so
+- **Stage timings**: `embed`, `hyde` (when enabled), `lexical`, `dense`, `rerank`, `plan`, `reflect`, `answer`. Times are *summed busy time*, so
   parallel sub-queries can add up to more than the wall-clock time; shares are computed against the sum of the leaf stages
   and always total 100%.
 - **Tokens and cost**: prompt and completion tokens per model (read from the provider's usage field, including streamed

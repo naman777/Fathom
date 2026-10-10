@@ -57,6 +57,10 @@ CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", "150"))
 CHUNK_HEADERS = os.environ.get("CHUNK_HEADERS", "false").lower() == "true"
 # Parent-document expansion: give the answer model each hit plus this many neighbouring chunks per side (0 = off).
 NEIGHBOR_EXPAND = int(os.environ.get("NEIGHBOR_EXPAND", "1"))  # measured: answer accuracy 0.77 -> 0.93 on RFCs, +40% answer tokens
+# HyDE: embed a model-written hypothetical answer passage (averaged with the question) for vector search. One extra LLM
+# call per new query; not yet measured on the golden sets, so off by default (retrieval/hyde.py).
+HYDE = os.environ.get("HYDE", "false").lower() == "true"
+HYDE_MODEL = os.environ.get("HYDE_MODEL", "gpt-6-luna")
 # Follow-up searches the agent may make after reflecting on its evidence. More is worse: 3 hops cut real multi-part
 # full-hit from 0.73 to 0.53 and doubled latency (README, Retrieval upgrades).
 MAX_FOLLOWUPS = int(os.environ.get("MAX_FOLLOWUPS", "1"))

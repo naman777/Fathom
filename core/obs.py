@@ -26,7 +26,7 @@ _current: contextvars.ContextVar["Trace | None"] = contextvars.ContextVar("fatho
 RECENT: deque = deque(maxlen=200)
 
 # Stages that do not contain other stages; shares are computed over these.
-LEAF = ("embed", "lexical", "dense", "rerank", "plan", "reflect", "answer")
+LEAF = ("embed", "hyde", "lexical", "dense", "rerank", "plan", "reflect", "answer")
 
 
 def cost_of(usage: dict[str, list[int]], prices: dict | None = None) -> tuple[float, list[str]]:

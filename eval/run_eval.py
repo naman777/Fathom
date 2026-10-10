@@ -93,6 +93,7 @@ def main():
     ap.add_argument("--followups", type=int, default=None, help="max agent follow-up searches (default: config.MAX_FOLLOWUPS)")
     ap.add_argument("--expand", type=int, default=None, help="neighbour chunks per side given to the answerer (default: config.NEIGHBOR_EXPAND)")
     ap.add_argument("--lexical-mode", default="", help="or | or_norm | websearch | trigram")
+    ap.add_argument("--hyde", action="store_true", help="HyDE on the dense leg (default: config.HYDE)")
     ap.add_argument("--answer-model", default="", help="model that writes eval answers (default: CHAT_MODEL)")
     a = ap.parse_args()
     if a.followups is not None:
@@ -101,6 +102,8 @@ def main():
         config.NEIGHBOR_EXPAND = a.expand
     if a.lexical_mode:
         config.LEXICAL_MODE = a.lexical_mode
+    if a.hyde:
+        config.HYDE = True
     if a.judge_model:
         config.JUDGE_MODEL = a.judge_model
     if a.answer_model:

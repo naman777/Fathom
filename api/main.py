@@ -154,7 +154,7 @@ def chat(req: ChatReq):
 def stats():
     """Aggregate of the most recent requests: latency, tokens, cost and where the time went."""
     return {**obs.stats(), "priced_models": sorted(config.MODEL_PRICES), "prices": config.MODEL_PRICES, "models": {
-        "answer": config.CHAT_MODEL, "rerank": config.RERANK_MODEL, "planner": config.PLANNER_MODEL,
+        "answer": config.CHAT_MODEL, "rerank": config.RERANK_MODEL, "planner": config.PLANNER_MODEL, **({"hyde": config.HYDE_MODEL} if config.HYDE else {}),
         "embed": config.EMBED_MODEL}}
 
 

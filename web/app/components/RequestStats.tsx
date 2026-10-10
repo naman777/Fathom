@@ -9,7 +9,7 @@ export const fmtTok = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : 
 const sec = (ms?: number | null) => (ms == null ? "–" : `${(ms / 1000).toFixed(1)}s`);
 
 const STAGE_LABEL: Record<string, string> = {
-  plan: "Plan", embed: "Embed query", lexical: "Full-text search", dense: "Vector search", rerank: "Rerank",
+  plan: "Plan", embed: "Embed query", hyde: "HyDE passage", lexical: "Full-text search", dense: "Vector search", rerank: "Rerank",
   reflect: "Reflect", answer: "Answer", retrieval_total: "Retrieval",
 };
 
