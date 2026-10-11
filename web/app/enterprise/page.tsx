@@ -140,7 +140,11 @@ export default function Enterprise() {
                     </span>
                   );
                 })}
-                <span className="ml-1">· {info.index.chunks.toLocaleString()} passages indexed</span>
+                <span className="ml-1">
+                  · {info.index.chunks.toLocaleString()} passages indexed
+                  {/* The full corpus is about 2.65M passages; anything well below that is a sample of it. */}
+                  {info.index.chunks > 0 && info.index.chunks < 2_000_000 && " (a sample of the 512k-document corpus)"}
+                </span>
               </p>
             )}
           </div>
