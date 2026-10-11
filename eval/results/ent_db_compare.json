@@ -1,0 +1,141 @@
+{
+  "vectors": 164587,
+  "dim": 768,
+  "queries": 470,
+  "k": 10,
+  "engines": {
+    "none": {
+      "share_of_corpus_visible": 1.0,
+      "qdrant (default ef)": {
+        "recall@10": 0.9498,
+        "queries_returning_fewer_than_10": 0,
+        "p50": 8.3,
+        "p95": 17.49,
+        "p99": 41.41,
+        "max": 283.53
+      },
+      "qdrant (ef=128)": {
+        "recall@10": 0.9498,
+        "queries_returning_fewer_than_10": 0,
+        "p50": 2.99,
+        "p95": 3.88,
+        "p99": 4.33,
+        "max": 5.7
+      },
+      "pgvector (ef_search=40, default)": {
+        "recall@10": 0.8298,
+        "queries_returning_fewer_than_10": 0,
+        "p50": 5.18,
+        "p95": 9.24,
+        "p99": 13.1,
+        "max": 16.33
+      },
+      "pgvector (ef_search=128)": {
+        "recall@10": 0.9289,
+        "queries_returning_fewer_than_10": 0,
+        "p50": 8.8,
+        "p95": 13.03,
+        "p99": 14.33,
+        "max": 15.01
+      }
+    },
+    "engineer": {
+      "share_of_corpus_visible": 0.517,
+      "qdrant (default ef)": {
+        "recall@10": 0.9383,
+        "queries_returning_fewer_than_10": 0,
+        "p50": 4.17,
+        "p95": 6.8,
+        "p99": 8.4,
+        "max": 11.51
+      },
+      "qdrant (ef=128)": {
+        "recall@10": 0.9383,
+        "queries_returning_fewer_than_10": 0,
+        "p50": 3.09,
+        "p95": 4.16,
+        "p99": 5.3,
+        "max": 7.05
+      },
+      "pgvector (ef_search=40, default)": {
+        "recall@10": 0.677,
+        "queries_returning_fewer_than_10": 129,
+        "p50": 4.63,
+        "p95": 7.91,
+        "p99": 9.77,
+        "max": 15.17
+      },
+      "pgvector (ef_search=128)": {
+        "recall@10": 0.937,
+        "queries_returning_fewer_than_10": 26,
+        "p50": 369.23,
+        "p95": 501.86,
+        "p99": 534.78,
+        "max": 1985.19
+      },
+      "pgvector (ef_search=40, iterative scan)": {
+        "recall@10": 1.0,
+        "queries_returning_fewer_than_10": 0,
+        "p50": 445.28,
+        "p95": 534.76,
+        "p99": 553.51,
+        "max": 565.39
+      }
+    },
+    "new_hire": {
+      "share_of_corpus_visible": 0.129,
+      "qdrant (default ef)": {
+        "recall@10": 0.997,
+        "queries_returning_fewer_than_10": 0,
+        "p50": 4.31,
+        "p95": 6.71,
+        "p99": 8.97,
+        "max": 23.35
+      },
+      "qdrant (ef=128)": {
+        "recall@10": 0.997,
+        "queries_returning_fewer_than_10": 0,
+        "p50": 3.27,
+        "p95": 4.33,
+        "p99": 4.97,
+        "max": 5.97
+      },
+      "pgvector (ef_search=40, default)": {
+        "recall@10": 1.0,
+        "queries_returning_fewer_than_10": 0,
+        "p50": 120.93,
+        "p95": 162.0,
+        "p99": 170.7,
+        "max": 177.85
+      },
+      "pgvector (ef_search=128)": {
+        "recall@10": 1.0,
+        "queries_returning_fewer_than_10": 0,
+        "p50": 138.51,
+        "p95": 162.95,
+        "p99": 173.13,
+        "max": 177.27
+      },
+      "pgvector (ef_search=40, iterative scan)": {
+        "recall@10": 1.0,
+        "queries_returning_fewer_than_10": 0,
+        "p50": 135.19,
+        "p95": 161.32,
+        "p99": 166.75,
+        "max": 176.13
+      }
+    }
+  },
+  "pgvector_build": {
+    "load_s": 6.5,
+    "hnsw_build_s": 77.6,
+    "table_mb": 1377,
+    "hnsw_index_mb": 674
+  },
+  "qdrant_config": {
+    "hnsw_m": 16,
+    "ef_construct": 128,
+    "quantization": "int8 scalar, rescored with the original vectors",
+    "sparse_bm25_in_same_collection": true
+  }
+}

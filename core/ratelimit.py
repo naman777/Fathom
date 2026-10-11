@@ -29,6 +29,8 @@ RULES = [
     ("global", "/api/", None, "GLOBAL_PER_MINUTE", 60),
     ("chat-min", "/api/chat", "POST", "CHAT_PER_MINUTE", 60),
     ("chat-day", "/api/chat", "POST", "CHAT_PER_DAY", 86400),
+    ("chat-min", "/api/enterprise/chat", "POST", "CHAT_PER_MINUTE", 60),   # same buckets: one budget for both chats
+    ("chat-day", "/api/enterprise/chat", "POST", "CHAT_PER_DAY", 86400),
     ("upload-hour", "/api/documents", "POST", "UPLOAD_PER_HOUR", 3600),
     ("delete-hour", "/api/documents", "DELETE", "DELETE_PER_HOUR", 3600),
     ("sample-hour", "/api/sample", "POST", "SAMPLE_PER_HOUR", 3600),

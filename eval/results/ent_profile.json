@@ -1,0 +1,74 @@
+{
+  "slack": {
+    "docs": 285605,
+    "chars_p50": 3239,
+    "chars_p90": 4946,
+    "chars_p99": 6744,
+    "chars_max": 12665,
+    "chars_total": 956171238
+  },
+  "gmail": {
+    "docs": 121390,
+    "chars_p50": 7036,
+    "chars_p90": 8821,
+    "chars_p99": 10650,
+    "chars_max": 17435,
+    "chars_total": 862108931
+  },
+  "linear": {
+    "docs": 35308,
+    "chars_p50": 5041,
+    "chars_p90": 7014,
+    "chars_p99": 9439,
+    "chars_max": 17311,
+    "chars_total": 182918690
+  },
+  "google_drive": {
+    "docs": 25108,
+    "chars_p50": 7005,
+    "chars_p90": 9146,
+    "chars_p99": 12465,
+    "chars_max": 22666,
+    "chars_total": 177076337
+  },
+  "hubspot": {
+    "docs": 15017,
+    "chars_p50": 3025,
+    "chars_p90": 4359,
+    "chars_p99": 5654,
+    "chars_max": 8338,
+    "chars_total": 47137973
+  },
+  "fireflies": {
+    "docs": 10173,
+    "chars_p50": 11080,
+    "chars_p90": 14713,
+    "chars_p99": 23254,
+    "chars_max": 41317,
+    "chars_total": 116918334
+  },
+  "github": {
+    "docs": 8052,
+    "chars_p50": 4616,
+    "chars_p90": 6437,
+    "chars_p99": 7720,
+    "chars_max": 13773,
+    "chars_total": 38033277
+  },
+  "jira": {
+    "docs": 6120,
+    "chars_p50": 5558,
+    "chars_p90": 6802,
+    "chars_p99": 8203,
+    "chars_max": 10435,
+    "chars_total": 33860863
+  },
+  "confluence": {
+    "docs": 5189,
+    "chars_p50": 9579,
+    "chars_p90": 12472,
+    "chars_p99": 17273,
+    "chars_max": 24851,
+    "chars_total": 50762330
+  }
+}

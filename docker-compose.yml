@@ -7,12 +7,20 @@ services:
     ports: ["5432:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
 
+  # Enterprise search index. Not published to the host: only the api service talks to it.
+  qdrant:
+    image: qdrant/qdrant:v1.19.2
+    volumes: ["qdrant:/qdrant/storage", "./qdrant_snapshots:/qdrant/snapshots"]
+
   api:
     build: .
     environment:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       DB_URL: postgresql://postgres:fathom@db:5432/fathom
-    depends_on: [db]
+      QDRANT_URL: http://qdrant:6333
+      ENT_COLLECTION: ${ENT_COLLECTION:-enterprise}
+    volumes: ["models:/models"]
+    depends_on: [db, qdrant]
     ports: ["8000:8000"]
     command: sh -c "python -m core.db && uvicorn api.main:app --host 0.0.0.0 --port 8000"
 
@@ -25,3 +33,5 @@ services:
 
 volumes:
   pgdata:
+  qdrant:
+  models:

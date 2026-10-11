@@ -1,0 +1,72 @@
+[
+  {
+    "model": "BAAI/bge-small-en-v1.5",
+    "chunk_target": 1200,
+    "documents": 15919,
+    "chunks": 83785,
+    "dim": 384,
+    "chunks_per_s": 345.6,
+    "query_ms_batched": 0.47,
+    "recall@5": 0.6626,
+    "recall@10": 0.7153,
+    "recall@20": 0.7748,
+    "mrr@20": 0.6265,
+    "full_hit@10": 0.6809
+  },
+  {
+    "model": "BAAI/bge-small-en-v1.5",
+    "chunk_target": 2000,
+    "documents": 15919,
+    "chunks": 51042,
+    "dim": 384,
+    "chunks_per_s": 310.6,
+    "query_ms_batched": 0.47,
+    "recall@5": 0.6551,
+    "recall@10": 0.7049,
+    "recall@20": 0.7588,
+    "mrr@20": 0.5942,
+    "full_hit@10": 0.6681
+  },
+  {
+    "model": "openai:text-embedding-3-small",
+    "chunk_target": 1200,
+    "documents": 15919,
+    "chunks": 83785,
+    "dim": 1536,
+    "chunks_per_s": 39.5,
+    "query_ms_batched": 23.01,
+    "recall@5": 0.7302,
+    "recall@10": 0.7916,
+    "recall@20": 0.8449,
+    "mrr@20": 0.6873,
+    "full_hit@10": 0.7511
+  },
+  {
+    "model": "BAAI/bge-base-en-v1.5",
+    "chunk_target": 1200,
+    "documents": 15919,
+    "chunks": 83785,
+    "dim": 768,
+    "chunks_per_s": 140.2,
+    "query_ms_batched": 1.09,
+    "recall@5": 0.6872,
+    "recall@10": 0.7442,
+    "recall@20": 0.7953,
+    "mrr@20": 0.6455,
+    "full_hit@10": 0.7064
+  },
+  {
+    "model": "snowflake/snowflake-arctic-embed-m",
+    "chunk_target": 1200,
+    "documents": 15919,
+    "chunks": 83785,
+    "dim": 768,
+    "chunks_per_s": 128.6,
+    "query_ms_batched": 1.2,
+    "recall@5": 0.7336,
+    "recall@10": 0.7939,
+    "recall@20": 0.849,
+    "mrr@20": 0.7081,
+    "full_hit@10": 0.7553
+  }
+]

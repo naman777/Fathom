@@ -1,0 +1,42 @@
+[
+  {
+    "question": "In the internal shiproom runner notes, what is the target time-to-recover threshold for a verified rollback in staging?",
+    "groups": [
+      "all"
+    ],
+    "question_id": "qst_0008",
+    "source": "Google Drive"
+  },
+  {
+    "question": "What are the default size limits for file uploads and total request size for the new multipart upload support on the OpenAI-compatible API endpoints?",
+    "groups": [
+      "eng"
+    ],
+    "question_id": "qst_0001",
+    "source": "GitHub"
+  },
+  {
+    "question": "What failover sequence and recovery targets did MedThink specify for handling an EU region outage, including any limits on how long traffic can shift to the US?",
+    "groups": [
+      "gtm"
+    ],
+    "question_id": "qst_0005",
+    "source": "Gmail"
+  },
+  {
+    "question": "Who has to sign off on a salary band exception above 10%, and what does a 25% increase need?",
+    "groups": [
+      "people"
+    ],
+    "question_id": null,
+    "source": "Slack | #people-ops"
+  },
+  {
+    "question": "How should a time-sensitive $2,200 trial purchase be submitted to Finance, and how fast is it triaged?",
+    "groups": [
+      "finance"
+    ],
+    "question_id": null,
+    "source": "Slack | #finance"
+  }
+]
