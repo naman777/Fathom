@@ -91,6 +91,15 @@ RL_SAMPLE_PER_HOUR = _int("RATE_LIMIT_SAMPLE_PER_HOUR", 30)
 # Comma-separated allowed browser origins, or "*" (dev only). E.g. https://fathom.example.com
 CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",") if o.strip()]
 
+# --- enterprise search (EnterpriseRAG-Bench corpus in Qdrant; see enterprise/) ---
+QDRANT_URL = os.environ.get("QDRANT_URL", "http://localhost:6333")
+QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY", "") or None
+QDRANT_GRPC = _bool("QDRANT_GRPC", True)  # gRPC on port 6334; set false where only the REST port is reachable
+ENT_COLLECTION = os.environ.get("ENT_COLLECTION", "enterprise")
+ENT_EMBED_MODEL = os.environ.get("ENT_EMBED_MODEL", "snowflake/snowflake-arctic-embed-m")  # open-source, chosen by eval/ent_embed_bakeoff.py
+ENT_CHUNK_TARGET = _int("ENT_CHUNK_TARGET", 1200)  # characters; see enterprise/chunking.py
+ENT_DATA_DIR = os.environ.get("ENT_DATA_DIR", "D:/fathom-data/erb")  # dataset download, kept outside the repo
+
 # --- original-file storage on S3 (disabled when AWS_S3_BUCKET is empty) ---
 # Credentials come from AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY (read by boto3 from the environment).
 AWS_S3_BUCKET = os.environ.get("AWS_S3_BUCKET", "").strip()

@@ -10,3 +10,8 @@ boto3
 
 # Optional: local ONNX reranker (RERANKER=local)
 # fastembed
+
+# Enterprise search (Qdrant, parquet reader, CPU query embeddings + BM25)
+qdrant-client
+pyarrow
+fastembed
