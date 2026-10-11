@@ -10,7 +10,9 @@ is sent twice overwrites itself. HNSW indexing is switched off during the load a
 faster than indexing incrementally.
 """
 import argparse
+import ctypes
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -41,6 +43,9 @@ def main():
     ap.add_argument("--limit", type=int, default=0, help="stop after this many documents (0 = no limit)")
     ap.add_argument("--backend", default="st", choices=["st", "fastembed"], help="st = GPU, fastembed = CPU (slow; small tests only)")
     a = ap.parse_args()
+
+    if sys.platform == "win32":  # a full load takes hours: keep Windows from idle-sleeping while this process runs
+        ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | 0x00000001)  # ES_CONTINUOUS | ES_SYSTEM_REQUIRED
 
     ck = _checkpoint(a.collection)
     if a.recreate:
