@@ -6,6 +6,7 @@ import { Logo } from "./icons";
 
 const LINKS = [
   { href: "/", label: "Chat" },
+  { href: "/enterprise", label: "Enterprise" },
   { href: "/architecture", label: "Architecture" },
   { href: "/results", label: "Results" },
 ];
@@ -14,7 +15,7 @@ const LINKS = [
 export default function SiteNav({ compact = false }: { compact?: boolean }) {
   const path = usePathname();
   return (
-    <nav className="flex items-center gap-1" aria-label="Primary">
+    <nav className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]" aria-label="Primary">
       {LINKS.map((l) => {
         const active = l.href === "/" ? path === "/" : path.startsWith(l.href);
         return (
@@ -22,7 +23,7 @@ export default function SiteNav({ compact = false }: { compact?: boolean }) {
             key={l.href}
             href={l.href}
             aria-current={active ? "page" : undefined}
-            className={`rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors duration-200 hover:text-brand ${
+            className={`shrink-0 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors duration-200 hover:text-brand ${
               active ? "text-foreground" : "text-muted-foreground"
             } ${compact && l.href === "/" ? "hidden sm:block" : ""}`}
           >

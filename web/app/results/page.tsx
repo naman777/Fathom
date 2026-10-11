@@ -20,7 +20,15 @@ type Injection = {
   clean_docs_flagged: Record<string, unknown>;
   scanner_detects: Record<string, boolean>;
 };
-type Results = { synthetic?: Dataset; real?: Dataset; injection?: Injection; upgrades?: { title: string; note: string; columns: string[]; rows: string[][] }[] };
+type Lat = { p50: number; p95: number; p99: number };
+type EntSummary = Record<string, number> & { retrieval_ms?: Lat; e2e_ms?: Lat };
+type Enterprise = {
+  stages?: Record<string, { summary: EntSummary; by_type: Record<string, EntSummary>; cost_usd: number; config: Record<string, string | number> }>;
+  leak?: { total: Record<string, number>; roles: Record<string, { label: string; chunks_returned: number; chunks_leaked: number; forbidden_questions: number; forbidden_blocked: number; control_questions: number; control_recall_role: number | null; control_recall_admin: number | null }> };
+  embed?: (Record<string, number> & { model: string })[];
+  db?: { vectors: number; dim: number; queries: number; pgvector_build?: Record<string, number>; engines: Record<string, Record<string, number | Record<string, number>>> };
+};
+type Results = { synthetic?: Dataset; real?: Dataset; injection?: Injection; upgrades?: { title: string; note: string; columns: string[]; rows: string[][] }[]; enterprise?: Enterprise };
 type Stats = {
   requests: number; wall_ms_p50?: number; wall_ms_p95?: number; tokens_total?: number; cost_usd_avg?: number | null;
   requests_with_unpriced_models?: number; stage_share_pct_avg?: Record<string, number>; prices?: Record<string, [number, number]>;
@@ -149,6 +157,8 @@ export default function ResultsPage() {
 
       {data?.injection && <InjectionSection inj={data.injection} />}
 
+      {data?.enterprise && <EnterpriseSections ent={data.enterprise} />}
+
       {data?.upgrades?.map((u) => (
         <Section key={u.title} id={u.title.toLowerCase().replace(/\W+/g, "-")} title={u.title} note={u.note}>
           <Table head={u.columns} rows={u.rows} />
@@ -164,6 +174,90 @@ export default function ResultsPage() {
         </ul>
       </Section>
     </PageShell>
+  );
+}
+
+const ENT_STAGES: Record<string, string> = {
+  lexical: "BM25 (Qdrant sparse)", dense: "dense (arctic-embed-m)", hybrid: "hybrid (RRF)", rerank: "hybrid + rerank",
+  noagent: "full pipeline, no agent", agent: "full pipeline + agent loop",
+};
+const f3 = (x?: number | null) => (x === undefined || x === null ? "–" : x.toFixed(3));
+const lat = (l?: Lat) => (!l ? "–" : l.p50 >= 1000 ? `${(l.p50 / 1000).toFixed(1)} / ${(l.p95 / 1000).toFixed(1)} / ${(l.p99 / 1000).toFixed(1)} s` : `${l.p50.toFixed(0)} / ${l.p95.toFixed(0)} / ${l.p99.toFixed(0)} ms`);
+
+/** Enterprise search (EnterpriseRAG-Bench in Qdrant): pipeline stages, access-leak test, and the two choice experiments. */
+function EnterpriseSections({ ent }: { ent: Enterprise }) {
+  const stages = Object.entries(ent.stages || {});
+  const gen = stages.filter(([, s]) => s.summary.overall_score !== undefined);
+  const agent = ent.stages?.agent;
+  return (
+    <>
+      {stages.length > 0 && (
+        <Section
+          id="enterprise"
+          title="Enterprise search"
+          note="EnterpriseRAG-Bench questions against a development index in Qdrant: every gold document plus a 6% sample of the 512k-document corpus. With far fewer distractors than the full corpus, these numbers are for comparing stages, not benchmark scores. Retrieval is scored at document level against the benchmark's gold documents, with no language model involved."
+        >
+          <Table
+            head={["Stage", "Questions", "Context recall", "Context precision", "MRR", "Retrieval p50 / p95 / p99"]}
+            rows={stages.map(([k, s]) => [ENT_STAGES[k] || k, String(s.summary.n), f3(s.summary.context_recall), f3(s.summary.context_precision), f3(s.summary.mrr), lat(s.summary.retrieval_ms)])}
+          />
+          {gen.length > 0 && (
+            <Table
+              className="mt-3"
+              head={["Pipeline", "Questions", "Overall score", "Correctness", "Completeness", "Factuality", "End-to-end p50 / p95 / p99", "Cost"]}
+              rows={gen.map(([k, s]) => [ENT_STAGES[k] || k, String(s.summary.n), f3(s.summary.overall_score), f3(s.summary.answer_correctness), f3(s.summary.answer_completeness), f3(s.summary.factuality), lat(s.summary.e2e_ms), fmtUsd(s.cost_usd)])}
+            />
+          )}
+          {agent && (
+            <Table
+              className="mt-3"
+              head={["Question type (agent loop)", "Questions", "Context recall", "Overall score", "Correctness", "Completeness"]}
+              rows={Object.entries(agent.by_type).map(([t, s]) => [t.replace(/_/g, " "), String(s.n), f3(s.context_recall), f3(s.overall_score), f3(s.answer_correctness), f3(s.answer_completeness)])}
+            />
+          )}
+          <p className="mt-3 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
+            Overall score is the benchmark&apos;s definition: correctness × completeness, averaged. Factuality is the share of answer claims supported by the retrieved context. The judge is {String(agent?.config.judge_model ?? "the answer model")}; the public leaderboard judges with a different model, so answer scores are not comparable with it. Rows that answer questions retrieve up to 8 passages, so their recall is measured over more text than the top-5 rows.
+          </p>
+        </Section>
+      )}
+
+      {ent.leak && (
+        <Section id="access" title="Access control leak test" note="Every benchmark question is searched as every restricted role, using the widest retrieval the API performs. A leak is any returned passage the role may not read. The control column checks the filter does not cost recall on questions the role is allowed to answer.">
+          <Table
+            head={["Role", "Passages returned", "Leaked", "Forbidden questions blocked", "Allowed questions", "Recall@20 (as admin)"]}
+            rows={Object.values(ent.leak.roles).map((r) => [r.label, r.chunks_returned.toLocaleString(), String(r.chunks_leaked), `${r.forbidden_blocked} / ${r.forbidden_questions}`, String(r.control_questions), `${f3(r.control_recall_role)} (${f3(r.control_recall_admin)})`])}
+          />
+        </Section>
+      )}
+
+      {ent.embed && (
+        <Section id="embedding" title="Embedding model and chunk size" note="Same subset of documents and the 470 questions with gold documents, ranked by exact cosine similarity so the model is the only variable. Open-source models ran on a laptop GPU.">
+          <Table
+            head={["Model", "Chunk size", "Dimensions", "Recall@5", "Recall@10", "MRR@20", "Chunks / s"]}
+            rows={[...ent.embed].sort((a, b) => b["recall@10"] - a["recall@10"]).map((r) => [r.model.replace("openai:", "OpenAI "), `${r.chunk_target} chars`, String(r.dim), f3(r["recall@5"]), f3(r["recall@10"]), f3(r["mrr@20"]), r.model.startsWith("openai:") ? "API" : r.chunks_per_s.toFixed(0)])}
+          />
+        </Section>
+      )}
+
+      {ent.db && (
+        <Section id="vector-db" title="Qdrant vs Postgres + pgvector" note={`The same ${ent.db.vectors.toLocaleString()} vectors (${ent.db.dim} dimensions) and ${ent.db.queries} query vectors in both engines, one query at a time, vector search only. Recall is against exact nearest neighbours. "Short" counts queries that returned fewer than 10 results.`}>
+          {Object.entries(ent.db.engines).map(([flt, row]) => (
+            <Table
+              key={flt}
+              className="mb-3"
+              head={[flt === "none" ? "No filter" : `Role filter: ${flt.replace("_", " ")} (${Math.round(Number(row.share_of_corpus_visible) * 100)}% of corpus visible)`, "Recall@10", "p50", "p95", "p99", "Short"]}
+              rows={Object.entries(row).filter(([, v]) => typeof v === "object").map(([eng, v]) => {
+                const r = v as Record<string, number>;
+                return [eng, f3(r["recall@10"]), `${r.p50.toFixed(1)} ms`, `${r.p95.toFixed(1)} ms`, `${r.p99.toFixed(1)} ms`, String(r.queries_returning_fewer_than_10)];
+              })}
+            />
+          ))}
+          <p className="max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
+            Qdrant applies the role filter inside the graph search, so filtered queries stay fast and complete. pgvector filters after the index scan: at default settings a filtered query can come back short, and the settings that fix that fall back to much slower scans. pgvector was run with default tuning; partial indexes or partitioning per group were not tried.
+          </p>
+        </Section>
+      )}
+    </>
   );
 }
 
