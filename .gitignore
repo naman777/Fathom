@@ -9,3 +9,4 @@ data/_upload/
 
 
 /deploy
+qdrant_snapshots/
