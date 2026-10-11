@@ -50,7 +50,9 @@ def _search(q, rerank, k):
         return hybrid(c, q, k=k, rerank=rerank)
 
 
-def run(conn, question: str, history=None, rerank=True, use_agent=True, k=5):
+def run(conn, question: str, history=None, rerank=True, use_agent=True, k=5, searcher=None, expander=None):
+    """searcher(query, k) and expander(chunks) replace the Postgres search and neighbour expansion (enterprise search
+    passes Qdrant-backed ones that already carry the caller's role); the planning and reflection logic is shared."""
     ctx = ""
     if history:
         ctx = "Conversation so far:\n" + "\n".join(
@@ -73,11 +75,12 @@ def run(conn, question: str, history=None, rerank=True, use_agent=True, k=5):
             hop += 1
             yield {"type": "search", "query": q, "hop": hop}
         if len(qs) == 1:
-            results = [hybrid(conn, qs[0], k=per, rerank=rerank)]
+            results = [searcher(qs[0], per) if searcher else hybrid(conn, qs[0], k=per, rerank=rerank)]
         else:
             parent = contextvars.copy_context()  # captured here, in the calling thread, so workers report to the trace
+            one = (lambda q: searcher(q, per)) if searcher else (lambda q: _search(q, rerank, per))
             with ThreadPoolExecutor(len(qs)) as ex:
-                results = list(ex.map(lambda q: parent.copy().run(_search, q, rerank, per), qs))
+                results = list(ex.map(lambda q: parent.copy().run(one, q), qs))
         for q, res in zip(qs, results):
             for r in res:
                 evidence.setdefault(r["id"], r)
@@ -105,6 +108,8 @@ def run(conn, question: str, history=None, rerank=True, use_agent=True, k=5):
     chunks = list(evidence.values())
     if len(chunks) > MAX_EVIDENCE:
         chunks = sorted(chunks, key=lambda c: -c.get("rerank_score", c["score"]))[:MAX_EVIDENCE]
-    if config.NEIGHBOR_EXPAND and conn is not None:
+    if expander:
+        chunks = expander(chunks)
+    elif config.NEIGHBOR_EXPAND and conn is not None:
         chunks = expand.expand(conn, chunks, config.NEIGHBOR_EXPAND)
     yield {"type": "sources", "chunks": chunks}
