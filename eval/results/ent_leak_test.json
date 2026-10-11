@@ -1,5 +1,5 @@
 {
-  "collection": "enterprise",
+  "collection": "enterprise_full",
   "k": 20,
   "total": {
     "chunks_returned": 47000,
@@ -21,8 +21,8 @@
       "forbidden_questions": 107,
       "forbidden_blocked": 107,
       "control_questions": 346,
-      "control_recall_role": 0.9077,
-      "control_recall_admin": 0.8911
+      "control_recall_role": 0.7627,
+      "control_recall_admin": 0.7463
     },
     "sales": {
       "label": "Sales / Customer Success",
@@ -37,8 +37,8 @@
       "forbidden_questions": 70,
       "forbidden_blocked": 70,
       "control_questions": 367,
-      "control_recall_role": 0.9093,
-      "control_recall_admin": 0.8984
+      "control_recall_role": 0.7718,
+      "control_recall_admin": 0.7636
     },
     "hr": {
       "label": "People Ops",
@@ -52,8 +52,8 @@
       "forbidden_questions": 292,
       "forbidden_blocked": 292,
       "control_questions": 128,
-      "control_recall_role": 0.9372,
-      "control_recall_admin": 0.9124
+      "control_recall_role": 0.8086,
+      "control_recall_admin": 0.7376
     },
     "finance": {
       "label": "Finance",
@@ -67,8 +67,8 @@
       "forbidden_questions": 293,
       "forbidden_blocked": 293,
       "control_questions": 127,
-      "control_recall_role": 0.9367,
-      "control_recall_admin": 0.9117
+      "control_recall_role": 0.813,
+      "control_recall_admin": 0.7356
     },
     "new_hire": {
       "label": "New hire",
@@ -81,8 +81,8 @@
       "forbidden_questions": 293,
       "forbidden_blocked": 293,
       "control_questions": 127,
-      "control_recall_role": 0.9367,
-      "control_recall_admin": 0.9117
+      "control_recall_role": 0.8136,
+      "control_recall_admin": 0.7356
     }
   }
 }
