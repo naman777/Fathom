@@ -1,0 +1,88 @@
+{
+  "collection": "enterprise",
+  "k": 20,
+  "total": {
+    "chunks_returned": 47000,
+    "chunks_leaked": 0,
+    "forbidden_questions": 1055,
+    "forbidden_blocked": 1055
+  },
+  "roles": {
+    "engineer": {
+      "label": "Engineer",
+      "groups": [
+        "all",
+        "eng",
+        "product"
+      ],
+      "queries": 470,
+      "chunks_returned": 9400,
+      "chunks_leaked": 0,
+      "forbidden_questions": 107,
+      "forbidden_blocked": 107,
+      "control_questions": 346,
+      "control_recall_role": 0.9077,
+      "control_recall_admin": 0.8911
+    },
+    "sales": {
+      "label": "Sales / Customer Success",
+      "groups": [
+        "all",
+        "gtm",
+        "product"
+      ],
+      "queries": 470,
+      "chunks_returned": 9400,
+      "chunks_leaked": 0,
+      "forbidden_questions": 70,
+      "forbidden_blocked": 70,
+      "control_questions": 367,
+      "control_recall_role": 0.9093,
+      "control_recall_admin": 0.8984
+    },
+    "hr": {
+      "label": "People Ops",
+      "groups": [
+        "all",
+        "people"
+      ],
+      "queries": 470,
+      "chunks_returned": 9400,
+      "chunks_leaked": 0,
+      "forbidden_questions": 292,
+      "forbidden_blocked": 292,
+      "control_questions": 128,
+      "control_recall_role": 0.9372,
+      "control_recall_admin": 0.9124
+    },
+    "finance": {
+      "label": "Finance",
+      "groups": [
+        "all",
+        "finance"
+      ],
+      "queries": 470,
+      "chunks_returned": 9400,
+      "chunks_leaked": 0,
+      "forbidden_questions": 293,
+      "forbidden_blocked": 293,
+      "control_questions": 127,
+      "control_recall_role": 0.9367,
+      "control_recall_admin": 0.9117
+    },
+    "new_hire": {
+      "label": "New hire",
+      "groups": [
+        "all"
+      ],
+      "queries": 470,
+      "chunks_returned": 9400,
+      "chunks_leaked": 0,
+      "forbidden_questions": 293,
+      "forbidden_blocked": 293,
+      "control_questions": 127,
+      "control_recall_role": 0.9367,
+      "control_recall_admin": 0.9117
+    }
+  }
+}
