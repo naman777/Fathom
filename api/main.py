@@ -156,11 +156,11 @@ def eval_results():
         if path.exists():
             out[key] = json.loads(path.read_text(encoding="utf-8"))
     ent = {}  # enterprise search: pipeline stages (per-question rows dropped), leak test, embedding and database comparisons
-    for key, name in (("stages", "ent_results_dev"), ("leak", "ent_leak_test"), ("embed", "ent_embed_bakeoff"), ("db", "ent_db_compare")):
+    for key, name in (("stages", "ent_results_full"), ("stages_dev", "ent_results_dev"), ("leak", "ent_leak_test"), ("embed", "ent_embed_bakeoff"), ("db", "ent_db_compare")):
         path = config.ROOT / "eval" / "results" / f"{name}.json"
         if path.exists():
             raw = json.loads(path.read_text(encoding="utf-8"))
-            ent[key] = {s: {k: v for k, v in r.items() if k != "rows"} for s, r in raw.items()} if key == "stages" else raw
+            ent[key] = {s: {k: v for k, v in r.items() if k != "rows"} for s, r in raw.items()} if key.startswith("stages") else raw
     if ent:
         out["enterprise"] = ent
     return out

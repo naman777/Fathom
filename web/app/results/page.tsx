@@ -195,7 +195,7 @@ function EnterpriseSections({ ent }: { ent: Enterprise }) {
         <Section
           id="enterprise"
           title="Enterprise search"
-          note="EnterpriseRAG-Bench questions against a development index in Qdrant: every gold document plus a 6% sample of the 512k-document corpus. With far fewer distractors than the full corpus, these numbers are for comparing stages, not benchmark scores. Retrieval is scored at document level against the benchmark's gold documents, with no language model involved."
+          note="All 500 EnterpriseRAG-Bench questions against the full corpus in Qdrant: 512k documents, 2.65M passages, built and measured on a laptop. The live demo serves a 6% sample of it. Retrieval is scored at document level against the benchmark's gold documents, with no language model involved."
         >
           <Table
             head={["Stage", "Questions", "Context recall", "Context precision", "MRR", "Retrieval p50 / p95 / p99"]}

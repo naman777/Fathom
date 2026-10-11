@@ -332,9 +332,9 @@ upload or delete documents. Put an authentication layer in front of any instance
 A second mode next to document chat (`/enterprise` in the UI): one company's Slack, Gmail, Linear, Google Drive, HubSpot,
 call transcripts, GitHub, Jira and Confluence, searched as a chosen **role**. The corpus is
 [EnterpriseRAG-Bench](https://huggingface.co/datasets/onyx-dot-app/EnterpriseRAG-Bench) (MIT): 512k documents of a
-simulated company and 500 questions with gold documents and gold answers. **Status: built and evaluated on a development
-index (every gold document plus a 6% sample, 164,587 chunks). The full corpus has not been indexed yet, so nothing below
-is a benchmark score.**
+simulated company and 500 questions with gold documents and gold answers. **Status: the full corpus is indexed (2.65M
+chunks) and all 500 questions are evaluated on it, on a laptop. The live site serves a 6% sample (every gold document
+plus a random sample, 164,587 chunks) because the full index needs more memory than the demo server has.**
 
 ```
 question + role -> [planner] -> Qdrant hybrid search (dense + BM25, RRF) with the role's group filter
@@ -346,8 +346,8 @@ question + role -> [planner] -> Qdrant hybrid search (dense + BM25, RRF) with th
 | Vector database | **Qdrant** (document chat stays on Postgres + pgvector) | The role filter runs inside the HNSW search; dense + BM25 + fusion is one request; int8 quantization in RAM with originals on disk. Measured against pgvector below | A second system to run |
 | Embeddings | **`snowflake-arctic-embed-m`** (open source, 768 dimensions) | Best of three open models and level with OpenAI `text-embedding-3-small` on recall (table below). No per-token cost, nothing leaves the machine | Corpus must be embedded on a GPU (129 chunks/s on an RTX 3050; about 4 chunks/s on CPU). Queries embed on CPU in about 22 ms |
 | Chunking | By natural unit (Slack message, email, transcript turn, ticket section), packed to 1,200 characters, each chunk prefixed `[Source | title]` | 1,200 beat 2,000 characters (MRR@20 0.627 vs 0.594). Headers come from metadata, so no LLM call | 64% more chunks than at 2,000 |
-| Lexical | BM25 sparse vectors in Qdrant (IDF applied by Qdrant) | BM25 alone is the strongest single retriever here (recall@5 0.807 vs 0.682 dense): questions are full of ticket ids and metric names | Larger index |
-| Rerank / answer / judge | `gpt-6-luna` | Reranking lifts MRR 0.765 to 0.887 | About 2.9 s retrieval p50 |
+| Lexical | BM25 sparse vectors in Qdrant (IDF applied by Qdrant) | BM25 alone beats dense search here (recall@5 0.627 vs 0.471 on the full corpus): questions are full of ticket ids and metric names | Larger index |
+| Rerank / answer / judge | `gpt-6-luna` | Reranking lifts MRR 0.581 to 0.733 on the full corpus | About 2.9 s retrieval p50 |
 
 **Messy data handled in `enterprise/chunking.py`:** 95% of Gmail documents are a Python list literal of raw emails with
 escaped newlines (unpacked into separate emails); thousands of documents have literal `\n` instead of line breaks
@@ -362,32 +362,49 @@ part of every Qdrant query, including neighbour expansion and the agent's sub-qu
 the reranker or the answer model. With real authentication only `current_role` changes. Switching role in the UI starts
 a new conversation so earlier answers are not sent back as history.
 
-### Enterprise results (development index, `gpt-6-luna` throughout)
+### Enterprise results (full corpus, all 500 questions, `gpt-6-luna` throughout)
 
-Reproduce: `python -m eval.ent_eval --stages lexical,dense,hybrid` (free), then
-`--stages rerank,noagent,agent --limit 100` (about $0.37). Retrieval is scored at document level against the benchmark's
-gold documents; no LLM is involved in those columns.
+Reproduce: `python -m eval.ent_eval --collection enterprise_full --stages lexical,dense,hybrid` (free), then
+`--stages rerank,noagent,agent` (about $1.90). Retrieval is scored at document level against the benchmark's gold
+documents; no LLM is involved in those columns. Saved in `eval/results/ent_results_full.json`.
 
-| Stage | Questions | Context recall | Context precision | MRR | Retrieval p50 / p95 / p99 |
-|---|---|---|---|---|---|
-| BM25 | 500 | 0.807 | 0.233 | 0.776 | 8 / 13 / 15 ms |
-| dense | 500 | 0.682 | 0.197 | 0.642 | 136 / 241 / 300 ms |
-| hybrid (RRF) | 500 | 0.805 | 0.231 | 0.765 | 140 / 302 / 458 ms |
-| hybrid + rerank | 100 | 0.844 | 0.432 | 0.887 | 2.9 / 7.0 / 8.1 s |
+| Stage | Context recall | Context precision | MRR | Retrieval p50 / p95 / p99 |
+|---|---|---|---|---|
+| BM25 | 0.627 | 0.170 | 0.590 | 52 / 318 / 606 ms |
+| dense | 0.471 | 0.129 | 0.447 | 0.8 / 1.6 / 2.8 s |
+| hybrid (RRF) | 0.649 | 0.173 | 0.581 | 0.8 / 1.4 / 1.6 s |
+| hybrid + rerank | 0.710 | 0.330 | 0.733 | 2.9 / 4.9 / 6.2 s |
 
-| Pipeline | Overall score | Correctness | Completeness | Factuality | End-to-end p50 / p95 / p99 |
-|---|---|---|---|---|---|
-| no agent | 0.634 | 0.750 | 0.685 | 0.978 | 3.8 / 8.0 / 10.6 s |
-| agent loop | 0.744 | 0.830 | 0.766 | 0.981 | 6.1 / 14.7 / 16.9 s |
+| Pipeline | Overall score | Correctness | Completeness | Factuality | End-to-end p50 / p95 / p99 | Cost / 500 |
+|---|---|---|---|---|---|---|
+| no agent | 0.570 | 0.678 | 0.624 | 0.981 | 4.9 / 8.1 / 10.9 s | $0.70 |
+| agent loop | 0.604 | 0.714 | 0.643 | 0.981 | 7.2 / 16.0 / 19.5 s | $0.93 |
 
 Overall score is the benchmark's (correctness x completeness, averaged); factuality is the share of answer claims
-supported by the retrieved context. Weakest categories with the agent: `completeness` 0.23, `project_related` 0.44,
-`semantic` 0.49, all of which need several documents or loosely worded matches.
+supported by the retrieved context. Reading it:
 
-**Leak test** (`python -m eval.ent_leak_test`, deterministic): all 470 questions with gold documents searched as each of
-the 5 restricted roles at the widest retrieval the API does. **0 of 47,000 returned chunks were outside the role's
-access; 1,055 of 1,055 forbidden question/role pairs retrieved none of their gold documents.** On questions a role may
-answer, its recall@20 is at least the admin role's (0.91 to 0.94 vs 0.89 to 0.91), so the filter costs nothing.
+- **Retrieval is the bottleneck, not generation.** Factuality is 0.98 and all 20 `info_not_found` questions were declined
+  correctly; the answer model rarely invents. Scores track context recall by category.
+- **By category (agent loop, overall score):** miscellaneous 0.90, constrained 0.81, conflicting info 0.77, intra-document
+  reasoning 0.76, basic 0.75, high level 0.55, **semantic 0.33, completeness 0.32, project related 0.23**. The three weak
+  ones have context recall of 0.47 to 0.51: loosely worded questions and questions needing 4 to 10 documents.
+- **Reranking earns its latency:** MRR 0.581 to 0.733, precision nearly doubled, for about 2 s.
+- **The agent loop helps less than on the sample:** +0.034 overall score for about 2.3 s more at p50 and double the p95.
+- **Dense search is slow at this size** (0.8 s p50 vs 52 ms for BM25): original vectors are on disk and read back for
+  rescoring, inside a Docker VM with 8 GB. Not tuned.
+
+**The 6% sample overstated quality**, which is why it is not reported as a benchmark result (same pipeline, sample index,
+100 questions for the LLM stages): BM25 recall 0.807, dense 0.682, hybrid + rerank 0.844, overall score 0.634 without
+the agent and 0.744 with it. `eval/results/ent_results_dev.json`.
+
+**Full index footprint:** 2,645,748 chunks from 511,962 documents, built in 350 minutes on an RTX 3050 (126 chunks/s
+including BM25 and writes), 16 GB on disk, 4.6 GB of RAM in Qdrant.
+
+**Leak test** (`python -m eval.ent_leak_test --collection enterprise_full`, deterministic): all 470 questions with gold
+documents searched as each of the 5 restricted roles at the widest retrieval the API does. **0 of 47,000 returned chunks
+were outside the role's access; 1,055 of 1,055 forbidden question/role pairs retrieved none of their gold documents.**
+On questions a role may answer, its recall@20 is at least the admin role's (0.76 to 0.81 vs 0.74 to 0.76), so the filter
+costs nothing. The same test on the sample index gave the same 0 and 1,055 (`ent_leak_test_dev.json`).
 
 **Embedding model** (`python -m eval.ent_embed_bakeoff`; 15,919-document subset, exact cosine search):
 
@@ -419,16 +436,18 @@ query plans were not inspected). pgvector build: 77.6 s for the HNSW index, 674 
 
 ### Enterprise caveats
 
-- **Not benchmark scores.** The development index has about 16x fewer distractors than the full corpus; full-corpus
-  numbers will be lower. The full index (about 2.65M chunks, roughly 6 GPU hours) has not been built.
-- The leaderboard judges with GPT-5.4; answers here are judged by `gpt-6-luna`, the same model that wrote them.
-- LLM stages ran once on 100 questions (stratified), so categories have 2 to 35 questions and there are no error bars.
+- **Not comparable with the public leaderboard.** It judges with GPT-5.4; answers here are judged by `gpt-6-luna`, the
+  same model that wrote them, with Fathom's own judge prompt. The retrieval columns need no judge.
+- LLM stages ran once, so there are no error bars; categories have 10 to 175 questions.
 - Answering rows retrieve up to 8 passages, so their recall is over more text than the top-5 rows.
+- The embedding, chunk-size and Qdrant vs pgvector comparisons above were run on subsets, not the full corpus.
+- The collection holds 18 fewer points than chunks written (2,645,730 vs 2,645,748); the cause was not investigated.
 - Qdrant uses int8 quantization with rescoring and pgvector full-precision vectors; pgvector was not tuned beyond
   `ef_search` and iterative scan (no partial indexes or per-group partitioning).
 - Access groups are coarse because the dataset has no owner, space or project fields; `people` and `finance` content
   exists only in two Slack channels each, and the benchmark has almost no questions about them.
-- The deployed site does not serve this yet: it needs a Qdrant instance and the index.
+- The deployed site serves the 6% sample (a Qdrant snapshot restored with `scripts/restore_snapshot.py`), and says so
+  on the page. Live answers there take about 6 s.
 
 Setup: `docker run -d --name fathom-qdrant -p 6333:6333 -p 6334:6334 -v fathom_qdrant:/qdrant/storage qdrant/qdrant`,
 download the dataset into `ENT_DATA_DIR`, then `python -m enterprise.ingest --per-mille 60 --recreate` from an
