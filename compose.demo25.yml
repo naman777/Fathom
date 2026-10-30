@@ -1,0 +1,19 @@
+# Production overlay: start qdrant25 first, restore and validate its snapshot, then recreate only api.
+# docker compose -p fathom -f compose.prod.yml -f compose.demo25.yml up -d qdrant25
+# docker compose -p fathom -f compose.prod.yml -f compose.demo25.yml up -d --no-deps api
+# Rollback: recreate api with compose.prod.yml alone; the original qdrant collection stays intact.
+services:
+  qdrant25:
+    image: qdrant/qdrant:v1.19.2
+    container_name: fathom-qdrant-25
+    restart: unless-stopped
+    mem_limit: 2500m
+    volumes: ["qdrant25:/qdrant/storage", "./qdrant_snapshots:/qdrant/snapshots"]
+    networks: [default]
+  api:
+    image: fathom-api:demo25-20261030
+    environment:
+      QDRANT_URL: http://qdrant25:6333
+      ENT_COLLECTION: enterprise_demo_25
+volumes:
+  qdrant25:

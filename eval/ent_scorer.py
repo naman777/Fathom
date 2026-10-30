@@ -71,6 +71,24 @@ def latency(xs: list[float]) -> dict:
     return {"p50": pct(xs, 50), "p95": pct(xs, 95), "p99": pct(xs, 99), "max": max(xs), "n": len(xs)} if xs else {}
 
 
+def request_cost_summary(rows: list[dict]) -> dict:
+    """Recorded request API spend, excluding the offline judge and hosting.
+
+    Older runs saved request costs only for generation, without pricing coverage.
+    Keep those estimates usable, but distinguish missing metadata from known prices.
+    Never present a partial estimate with an unpriced model as a complete query cost.
+    """
+    measured = [r for r in rows if "cost_usd" in r]
+    if not measured:
+        return {}
+    unpriced = sorted({m for r in measured for m in r.get("unpriced_models", [])})
+    complete = len(measured) == len(rows) and not unpriced
+    return {"n": len(measured), "total": sum(r["cost_usd"] for r in measured) if complete else None,
+            "mean": statistics.mean(r["cost_usd"] for r in measured) if complete else None,
+            "unpriced_models": unpriced,
+            "pricing_metadata_complete": all("unpriced_models" in r for r in measured)}
+
+
 def summarize(rows: list[dict]) -> dict:
     m = statistics.mean
     out = {"n": len(rows)}
@@ -90,6 +108,9 @@ def summarize(rows: list[dict]) -> dict:
         xs = [r[key] for r in rows if key in r]
         if xs:
             out[key] = latency(xs)
+    cost = request_cost_summary(rows)
+    if cost:
+        out["request_cost_usd"] = cost
     return out
 
 

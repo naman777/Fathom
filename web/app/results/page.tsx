@@ -5,6 +5,7 @@ import { Alert } from "@/components/ui/alert";
 import { Segmented } from "@/components/ui/segmented";
 import PageShell, { Card, Section } from "../components/PageShell";
 import { fmtTok, fmtUsd } from "../components/RequestStats";
+import type { EnterpriseInfo } from "../components/types";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -21,7 +22,12 @@ type Injection = {
   scanner_detects: Record<string, boolean>;
 };
 type Lat = { p50: number; p95: number; p99: number };
-type EntSummary = Record<string, number> & { retrieval_ms?: Lat; e2e_ms?: Lat };
+type RequestCost = { n: number; mean: number | null; total: number | null; unpriced_models: string[]; pricing_metadata_complete: boolean };
+type EntSummary = {
+  n: number; context_recall?: number; context_precision?: number; mrr?: number;
+  overall_score?: number; answer_correctness?: number; answer_completeness?: number; factuality?: number;
+  retrieval_ms?: Lat; e2e_ms?: Lat; request_cost_usd?: RequestCost;
+};
 type Enterprise = {
   stages?: Record<string, { summary: EntSummary; by_type: Record<string, EntSummary>; cost_usd: number; config: Record<string, string | number> }>;
   leak?: { total: Record<string, number>; roles: Record<string, { label: string; chunks_returned: number; chunks_leaked: number; forbidden_questions: number; forbidden_blocked: number; control_questions: number; control_recall_role: number | null; control_recall_admin: number | null }> };
@@ -45,12 +51,14 @@ const ms = (s?: Stat) => (!s ? "–" : `${(s.mean / 1000).toFixed(1)}s`);
 export default function ResultsPage() {
   const [data, setData] = useState<Results | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [liveIndex, setLiveIndex] = useState<EnterpriseInfo["index"] | null>(null);
   const [err, setErr] = useState(false);
   const [ds, setDs] = useState<keyof typeof DATASETS>("real");
 
   useEffect(() => {
     fetch(`${API}/api/eval-results`).then((r) => r.json()).then(setData).catch(() => setErr(true));
     fetch(`${API}/api/stats`).then((r) => r.json()).then(setStats).catch(() => {});
+    fetch(`${API}/api/enterprise/roles`).then((r) => r.json()).then((info: EnterpriseInfo) => setLiveIndex(info.index)).catch(() => {});
   }, []);
 
   const cur = data?.[ds];
@@ -157,7 +165,7 @@ export default function ResultsPage() {
 
       {data?.injection && <InjectionSection inj={data.injection} />}
 
-      {data?.enterprise && <EnterpriseSections ent={data.enterprise} />}
+      {data?.enterprise && <EnterpriseSections ent={data.enterprise} liveIndex={liveIndex} />}
 
       {data?.upgrades?.map((u) => (
         <Section key={u.title} id={u.title.toLowerCase().replace(/\W+/g, "-")} title={u.title} note={u.note}>
@@ -185,7 +193,7 @@ const f3 = (x?: number | null) => (x === undefined || x === null ? "–" : x.toF
 const lat = (l?: Lat) => (!l ? "–" : l.p50 >= 1000 ? `${(l.p50 / 1000).toFixed(1)} / ${(l.p95 / 1000).toFixed(1)} / ${(l.p99 / 1000).toFixed(1)} s` : `${l.p50.toFixed(0)} / ${l.p95.toFixed(0)} / ${l.p99.toFixed(0)} ms`);
 
 /** Enterprise search (EnterpriseRAG-Bench in Qdrant): pipeline stages, access-leak test, and the two choice experiments. */
-function EnterpriseSections({ ent }: { ent: Enterprise }) {
+function EnterpriseSections({ ent, liveIndex }: { ent: Enterprise; liveIndex: EnterpriseInfo["index"] | null }) {
   const stages = Object.entries(ent.stages || {});
   const gen = stages.filter(([, s]) => s.summary.overall_score !== undefined);
   const agent = ent.stages?.agent;
@@ -195,17 +203,20 @@ function EnterpriseSections({ ent }: { ent: Enterprise }) {
         <Section
           id="enterprise"
           title="Enterprise search"
-          note="All 500 EnterpriseRAG-Bench questions against the full corpus in Qdrant: 512k documents, 2.65M passages, built and measured on a laptop. The live demo serves a 6% sample of it. Retrieval is scored at document level against the benchmark's gold documents, with no language model involved."
+          note="All 500 questions from Onyx's public EnterpriseRAG-Bench against the full Qdrant corpus: 512k documents and 2.65M passages. These are laptop measurements at 4 concurrent questions. Retrieval uses benchmark gold documents and needs no LLM judge; 470 questions have gold documents."
         >
+          <p className="mb-3 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
+            <a className="underline underline-offset-4" href="https://huggingface.co/datasets/onyx-dot-app/EnterpriseRAG-Bench">EnterpriseRAG-Bench</a> is an external benchmark with a synthetic company corpus. Its questions include semantic paraphrases, conflicting information, missing answers and completeness tasks requiring up to 10 documents. Results measure this benchmark; they do not establish production accuracy on private company data. The published questions also informed model and chunking choices, so this is not an untouched test set.
+          </p>
           <Table
-            head={["Stage", "Questions", "Context recall", "Context precision", "MRR", "Retrieval p50 / p95 / p99"]}
-            rows={stages.map(([k, s]) => [ENT_STAGES[k] || k, String(s.summary.n), f3(s.summary.context_recall), f3(s.summary.context_precision), f3(s.summary.mrr), lat(s.summary.retrieval_ms)])}
+            head={["Stage", "Questions", "Document Recall@5", "Document Precision@5", "MRR@5", "Retrieval p50 / p95 / p99"]}
+            rows={stages.filter(([k]) => ["lexical", "dense", "hybrid", "rerank"].includes(k)).map(([k, s]) => [ENT_STAGES[k] || k, String(s.summary.n), f3(s.summary.context_recall), f3(s.summary.context_precision), f3(s.summary.mrr), lat(s.summary.retrieval_ms)])}
           />
           {gen.length > 0 && (
             <Table
               className="mt-3"
-              head={["Pipeline", "Questions", "Overall score", "Correctness", "Completeness", "Factuality", "End-to-end p50 / p95 / p99", "Cost"]}
-              rows={gen.map(([k, s]) => [ENT_STAGES[k] || k, String(s.summary.n), f3(s.summary.overall_score), f3(s.summary.answer_correctness), f3(s.summary.answer_completeness), f3(s.summary.factuality), lat(s.summary.e2e_ms), fmtUsd(s.cost_usd)])}
+              head={["Pipeline", "Questions", "Overall score", "Correctness", "Completeness", "Factuality", "End-to-end p50 / p95 / p99", "API $ / query", "Eval API total (with judge)"]}
+              rows={gen.map(([k, s]) => [ENT_STAGES[k] || k, String(s.summary.n), f3(s.summary.overall_score), f3(s.summary.answer_correctness), f3(s.summary.answer_completeness), f3(s.summary.factuality), lat(s.summary.e2e_ms), s.summary.request_cost_usd?.mean == null ? "unavailable" : `$${s.summary.request_cost_usd.mean.toFixed(6)}`, fmtUsd(s.cost_usd)])}
             />
           )}
           {agent && (
@@ -217,6 +228,15 @@ function EnterpriseSections({ ent }: { ent: Enterprise }) {
           )}
           <p className="mt-3 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
             Overall score is the benchmark&apos;s definition: correctness × completeness, averaged. Factuality is the share of answer claims supported by the retrieved context. The judge is {String(agent?.config.judge_model ?? "the answer model")}; the public leaderboard judges with a different model, so answer scores are not comparable with it. Rows that answer questions retrieve up to 8 passages, so their recall is measured over more text than the top-5 rows.
+          </p>
+          <p className="mt-3 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
+            Baselines rank up to 5 distinct documents from 20 candidate passages; reranking returns 5 passages, which may cover fewer documents. API cost per query averages recorded request traces, excluding the offline judge, hosting and local compute. Historical traces lack pricing-coverage metadata; these are configured-price estimates, not invoices. LLM stages ran once, so the agent&apos;s overall-score change from 0.570 to 0.604 has no error bars.
+          </p>
+          <p className="mt-3 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
+            The agent decomposes multi-part questions into up to 4 parallel role-filtered searches, checks evidence coverage, and can issue one targeted follow-up search before generating a cited answer. Simple questions without chat history skip planning. Full-corpus ingestion wrote 2,645,748 passages in 350 minutes on an RTX 3050, about 126 passages/s including BM25 and writes. Four repeated document IDs overwrite 18 chunk positions, leaving 2,645,730 distinct points.
+          </p>
+          <p className="mt-3 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
+            Deployment cost decision: {liveIndex?.ready ? `the hosted demo currently indexes ${liveIndex.chunks.toLocaleString()} passages (${(100 * liveIndex.chunks / 2_645_730).toFixed(1)}% of the full index)` : "the hosted demo uses a separately sized collection; its current passage count is shown on the Enterprise page"} to fit its memory budget. Demo subsets retain all benchmark gold documents plus sampled distractors. All results above use the full local index; demo quality and latency are separate measurements.
           </p>
         </Section>
       )}

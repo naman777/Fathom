@@ -1,0 +1,431 @@
+{
+  "requested_sample_per_mille": 250,
+  "actual_chunk_fraction": 0.2522732856338326,
+  "documents": 128795,
+  "points": 667447,
+  "gold_documents": 722,
+  "source_points": 2645730,
+  "selection_sha256": "a0608d56baa64f13e1c521909c80dbb15ea6711bbcfee8a905abc6071c2b475e",
+  "snapshot": {
+    "collection": "enterprise_demo_25",
+    "points": 667447,
+    "source_snapshot": "enterprise_demo_25-3143447120730557-2026-10-30-04-19-04.snapshot",
+    "snapshot_bytes": 4377601024,
+    "snapshot_sha256": "a8d8843557217c2a9dc4088d4255072d0e1f526bf0a809195e1dc7b4b864a17a",
+    "compressed_bytes": 3169870158,
+    "compressed_sha256": "02dbce60703c06ad3d5fd423c0a75de36ef32f70e8d6af9b7ca476bd52cc70ca",
+    "seconds": 125.70794110000134
+  },
+  "baseline": {
+    "measured_at": "2026-10-30T04:02:38.044875+00:00",
+    "collection": "enterprise",
+    "points": 164587,
+    "concurrency": 3,
+    "questions": 12,
+    "wall_s": 75.50057084811851,
+    "retrieval_ms": {
+      "p50": 6714.688357897103,
+      "p95": 13408.720477949828,
+      "p99": 14008.168406784534,
+      "max": 14008.168406784534,
+      "n": 12
+    },
+    "e2e_ms": {
+      "p50": 15573.200093116611,
+      "p95": 22409.467860125005,
+      "p99": 23307.265027891845,
+      "max": 23307.265027891845,
+      "n": 12
+    },
+    "api_cost_usd": 0.01802,
+    "role_chunks_checked": 1200,
+    "role_chunks_leaked": 0,
+    "rows": [
+      {
+        "question_id": "qst_0001",
+        "question_type": "basic",
+        "retrieval_ms": 6714.688357897103,
+        "e2e_ms": 8265.380337834358,
+        "answer_chars": 132,
+        "sources": 5,
+        "sub_queries": 1,
+        "followups": 0,
+        "cost_usd": 0.000764,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0002",
+        "question_type": "basic",
+        "retrieval_ms": 3831.7628488875926,
+        "e2e_ms": 11140.361001715064,
+        "answer_chars": 110,
+        "sources": 5,
+        "sub_queries": 1,
+        "followups": 0,
+        "cost_usd": 0.000792,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0176",
+        "question_type": "semantic",
+        "retrieval_ms": 9393.09265697375,
+        "e2e_ms": 19859.283873811364,
+        "answer_chars": 140,
+        "sources": 5,
+        "sub_queries": 1,
+        "followups": 0,
+        "cost_usd": 0.001029,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0177",
+        "question_type": "semantic",
+        "retrieval_ms": 13408.720477949828,
+        "e2e_ms": 22409.467860125005,
+        "answer_chars": 284,
+        "sources": 8,
+        "sub_queries": 2,
+        "followups": 1,
+        "cost_usd": 0.002349,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0411",
+        "question_type": "conflicting_info",
+        "retrieval_ms": 5569.670316297561,
+        "e2e_ms": 8153.75404804945,
+        "answer_chars": 103,
+        "sources": 5,
+        "sub_queries": 1,
+        "followups": 0,
+        "cost_usd": 0.000975,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0412",
+        "question_type": "conflicting_info",
+        "retrieval_ms": 3882.586805615574,
+        "e2e_ms": 10888.94807966426,
+        "answer_chars": 135,
+        "sources": 5,
+        "sub_queries": 1,
+        "followups": 0,
+        "cost_usd": 0.000988,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0431",
+        "question_type": "completeness",
+        "retrieval_ms": 12059.406098909676,
+        "e2e_ms": 22301.384784281254,
+        "answer_chars": 2079,
+        "sources": 5,
+        "sub_queries": 2,
+        "followups": 1,
+        "cost_usd": 0.002328,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0432",
+        "question_type": "completeness",
+        "retrieval_ms": 5992.972524836659,
+        "e2e_ms": 12747.839183080941,
+        "answer_chars": 232,
+        "sources": 5,
+        "sub_queries": 1,
+        "followups": 0,
+        "cost_usd": 0.000821,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0341",
+        "question_type": "project_related",
+        "retrieval_ms": 12600.462339818478,
+        "e2e_ms": 21689.237073995173,
+        "answer_chars": 1432,
+        "sources": 8,
+        "sub_queries": 3,
+        "followups": 1,
+        "cost_usd": 0.003016,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0342",
+        "question_type": "project_related",
+        "retrieval_ms": 14008.168406784534,
+        "e2e_ms": 23307.265027891845,
+        "answer_chars": 1751,
+        "sources": 8,
+        "sub_queries": 3,
+        "followups": 1,
+        "cost_usd": 0.003092,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0481",
+        "question_type": "info_not_found",
+        "retrieval_ms": 4998.369387816638,
+        "e2e_ms": 14189.322684891522,
+        "answer_chars": 332,
+        "sources": 5,
+        "sub_queries": 1,
+        "followups": 0,
+        "cost_usd": 0.000948,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0482",
+        "question_type": "info_not_found",
+        "retrieval_ms": 5495.57240633294,
+        "e2e_ms": 15573.200093116611,
+        "answer_chars": 322,
+        "sources": 5,
+        "sub_queries": 1,
+        "followups": 0,
+        "cost_usd": 0.000918,
+        "unpriced_models": []
+      }
+    ]
+  },
+  "previous_frontend_deployment": "dpl_Gz7dXhSXoJbSiXYT2DxGbML2rbjL",
+  "candidate_frontend_deployment": "dpl_DBHprkVteb2aEAsZwUy4kL6jRjdX",
+  "deployed_at_utc": "2026-10-30T04:41:45.295256+00:00",
+  "production_frontend_deployment": "dpl_6YkMpdzcGyGqx65BevXeAcY31x5E",
+  "url": "https://fathom.naman.sbs/enterprise",
+  "staged_check": {
+    "measured_at": "2026-10-30T04:36:33.631616+00:00",
+    "collection": "enterprise_demo_25",
+    "points": 667447,
+    "concurrency": 3,
+    "questions": 12,
+    "wall_s": 49.621641100849956,
+    "retrieval_ms": {
+      "p50": 7024.716620799154,
+      "p95": 12694.479062221944,
+      "p99": 12991.47533904761,
+      "max": 12991.47533904761,
+      "n": 12
+    },
+    "e2e_ms": {
+      "p50": 8249.69600699842,
+      "p95": 16502.38165119663,
+      "p99": 17277.890670113266,
+      "max": 17277.890670113266,
+      "n": 12
+    },
+    "api_cost_usd": 0.01776,
+    "role_chunks_checked": 1200,
+    "role_chunks_leaked": 0,
+    "rows": [
+      {
+        "question_id": "qst_0001",
+        "question_type": "basic",
+        "retrieval_ms": 4316.107098013163,
+        "e2e_ms": 5406.947743147612,
+        "answer_chars": 92,
+        "sources": 5,
+        "sub_queries": 1,
+        "followups": 0,
+        "cost_usd": 0.00074,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0002",
+        "question_type": "basic",
+        "retrieval_ms": 3822.268803138286,
+        "e2e_ms": 4899.586539249867,
+        "answer_chars": 104,
+        "sources": 5,
+        "sub_queries": 1,
+        "followups": 0,
+        "cost_usd": 0.000861,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0176",
+        "question_type": "semantic",
+        "retrieval_ms": 8285.437808837742,
+        "e2e_ms": 9546.854741871357,
+        "answer_chars": 113,
+        "sources": 5,
+        "sub_queries": 1,
+        "followups": 0,
+        "cost_usd": 0.000959,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0177",
+        "question_type": "semantic",
+        "retrieval_ms": 12991.47533904761,
+        "e2e_ms": 17277.890670113266,
+        "answer_chars": 261,
+        "sources": 8,
+        "sub_queries": 2,
+        "followups": 1,
+        "cost_usd": 0.0026,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0411",
+        "question_type": "conflicting_info",
+        "retrieval_ms": 3288.53602707386,
+        "e2e_ms": 4604.264958295971,
+        "answer_chars": 103,
+        "sources": 5,
+        "sub_queries": 1,
+        "followups": 0,
+        "cost_usd": 0.000888,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0412",
+        "question_type": "conflicting_info",
+        "retrieval_ms": 3338.692496996373,
+        "e2e_ms": 4954.419414978474,
+        "answer_chars": 108,
+        "sources": 5,
+        "sub_queries": 1,
+        "followups": 0,
+        "cost_usd": 0.000944,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0431",
+        "question_type": "completeness",
+        "retrieval_ms": 11097.42198092863,
+        "e2e_ms": 15240.47380220145,
+        "answer_chars": 2150,
+        "sources": 6,
+        "sub_queries": 2,
+        "followups": 1,
+        "cost_usd": 0.002356,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0432",
+        "question_type": "completeness",
+        "retrieval_ms": 4824.142062105238,
+        "e2e_ms": 6881.847781129181,
+        "answer_chars": 222,
+        "sources": 5,
+        "sub_queries": 1,
+        "followups": 0,
+        "cost_usd": 0.000872,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0341",
+        "question_type": "project_related",
+        "retrieval_ms": 12694.479062221944,
+        "e2e_ms": 16502.38165119663,
+        "answer_chars": 1423,
+        "sources": 8,
+        "sub_queries": 3,
+        "followups": 1,
+        "cost_usd": 0.003111,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0342",
+        "question_type": "project_related",
+        "retrieval_ms": 12635.401207022369,
+        "e2e_ms": 15966.673363931477,
+        "answer_chars": 1363,
+        "sources": 8,
+        "sub_queries": 2,
+        "followups": 1,
+        "cost_usd": 0.002438,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0481",
+        "question_type": "info_not_found",
+        "retrieval_ms": 6474.966052919626,
+        "e2e_ms": 8234.59948413074,
+        "answer_chars": 352,
+        "sources": 5,
+        "sub_queries": 1,
+        "followups": 0,
+        "cost_usd": 0.000967,
+        "unpriced_models": []
+      },
+      {
+        "question_id": "qst_0482",
+        "question_type": "info_not_found",
+        "retrieval_ms": 7024.716620799154,
+        "e2e_ms": 8249.69600699842,
+        "answer_chars": 182,
+        "sources": 5,
+        "sub_queries": 1,
+        "followups": 0,
+        "cost_usd": 0.001024,
+        "unpriced_models": []
+      }
+    ]
+  },
+  "resources": {
+    "other_project_containers_unchanged": 16,
+    "qdrant_working_memory_peak_gib": 1.845,
+    "qdrant_memory_limit_bytes": 2621440000,
+    "qdrant_memory_events": "low 0\nhigh 0\nmax 18379\noom 0\noom_kill 0\noom_group_kill 0\n",
+    "minimum_host_available_gib": 1.6144027709960938,
+    "final_host_available_gib": 3.3465614318847656,
+    "resource_samples": 186,
+    "qdrant_restarts": 0,
+    "api_image": "sha256:de52a7418fa0719ad7283b2c8556ce9f656dc0109f8831e02aa96320f5725e2c",
+    "old_qdrant_running": false
+  },
+  "public_api_smoke": {
+    "index": {
+      "ready": true,
+      "chunks": 667447,
+      "status": "green"
+    },
+    "stream_events": [
+      "done",
+      "first_token",
+      "meta",
+      "retrieval_done",
+      "token",
+      "trace"
+    ],
+    "stream_wall_ms": 7583,
+    "first_token_ms": 7351,
+    "sources": 5,
+    "cost_usd": 0.000882,
+    "client_elapsed_s": 7.731372799957171,
+    "answer_chars": 86
+  },
+  "frontend_check": {
+    "enterprise_http": 200,
+    "results_http": 200,
+    "dynamic_index_code_verified": true,
+    "production_deployment": "dpl_6YkMpdzcGyGqx65BevXeAcY31x5E"
+  },
+  "collection_configuration": {
+    "default_segment_number": 12,
+    "actual_segments": 8,
+    "max_optimization_threads": 1,
+    "max_indexing_threads": 2
+  },
+  "measurement_scope": "12 fixed questions across six categories, three concurrent full-agent requests; no answer judge. Small deployment smoke/load check, not a capacity guarantee, quality benchmark, or statistically significant latency comparison.",
+  "source_sha256": {
+    "api/main.py": "b90ee78a2a8015a985bea83eaa76af61790962e9c2485c129e6a06456f48e64b",
+    "eval/ent_scorer.py": "c59ad063c4db23a8b85d905082fada9ebdc9e929dc663a3fe2d604ed6275bd49",
+    "eval/ent_eval.py": "b5439a38baeb7b090c26bd1d91edd76ff3698ffb5d1bb392bb627489d7506fcd",
+    "scripts/check_enterprise_deployment.py": "1b9cbb7a6faef5ddb0623d210c79ffca9482b322c9fba9c64ce9ba6b3d0ff67d",
+    "eval/results/ent_results_full.json": "1e218359ae12a624a0b73819e3cf8df304610fd9d24062f9ed94c363b7c30b81",
+    "eval/results/ent_leak_test.json": "fe7527158f7eaa440fc340f60601b5a46c8c4e90cfbe007edfc19dddcb53c7be",
+    "web/app/results/page.tsx": "f5ad1a65c2bca1eb5f2719f43798a2e34bda180ff868c4b7506fb03c3918a7d8",
+    "web/app/enterprise/page.tsx": "0d696424d38325c374dee04ce2bd85f24ca504d64d6e9631b580504e4b5c67bd",
+    "compose.demo25.yml": "160c55b292c618716736596a1d8ae4b660319e5fc60dd58b98be807e8cb66084"
+  },
+  "rollback": {
+    "old_collection": "enterprise",
+    "old_points": 164587,
+    "old_container": "fathom-qdrant",
+    "old_volume": "fathom_qdrant",
+    "original_api_image": "sha256:0d442370a2f5fa43499b49d2a526ef765355f39d4694ad4ddc38679bdb9b5398",
+    "compose_command": "docker compose -p fathom -f compose.prod.yml up -d --no-build api"
+  }
+}

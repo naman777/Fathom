@@ -12,7 +12,7 @@ from api import enterprise as enterprise_api
 from api.chat import ChatReq, chat_response, validate_chat
 from core import config, db, obs, storage
 from core.ratelimit import rate_limit_middleware
-from eval import real_corpus
+from eval import ent_scorer, real_corpus
 from ingest.pipeline import ingest_text, read_file
 
 obs.setup_logging()
@@ -160,7 +160,17 @@ def eval_results():
         path = config.ROOT / "eval" / "results" / f"{name}.json"
         if path.exists():
             raw = json.loads(path.read_text(encoding="utf-8"))
-            ent[key] = {s: {k: v for k, v in r.items() if k != "rows"} for s, r in raw.items()} if key.startswith("stages") else raw
+            if key.startswith("stages"):
+                ent[key] = {}
+                for stage, result in raw.items():
+                    summary = dict(result["summary"])
+                    # Derive request costs from historical rows without rewriting measured artifacts.
+                    cost = ent_scorer.request_cost_summary(result.get("rows", []))
+                    if cost:
+                        summary["request_cost_usd"] = cost
+                    ent[key][stage] = {**{k: v for k, v in result.items() if k != "rows"}, "summary": summary}
+            else:
+                ent[key] = raw
     if ent:
         out["enterprise"] = ent
     return out

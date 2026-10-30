@@ -16,6 +16,7 @@ import json
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 
 from agent import loop
 from core import config, llm, obs
@@ -66,10 +67,11 @@ def run_question(q: dict, stage: str, k: int, collection: str, judge_model: str 
             row["first_token_ms"] = first if first is not None else (time.perf_counter() - t) * 1000
             row["e2e_ms"] = (time.perf_counter() - t) * 1000
             row["answer"] = answer
+    # Snapshot every stage before judging: retrieval-only queries also have request costs.
+    recorded = trace.summary()
+    row.update({key: recorded[key] for key in ("stages_ms", "cost_usd", "usage", "unpriced_models")})
     if stage in ("noagent", "agent"):  # judged outside the trace so its tokens are not counted as request cost
         row.update(ent_scorer.judge(q, chunks, row["answer"], judge_model))
-        row["stages_ms"] = trace.summary()["stages_ms"]
-        row["cost_usd"] = trace.summary()["cost_usd"]
     return row
 
 
@@ -100,6 +102,10 @@ def main():
         results[stage] = {"summary": ent_scorer.summarize(rows), "by_type": ent_scorer.by_type(rows), "usage": usage,
                           "cost_usd": round(obs.cost_of(usage)[0], 4),
                           "config": {"k": a.k, "collection": a.collection, "questions": len(rows), "concurrency": a.concurrency,
+                                     "measured_at": datetime.now(timezone.utc).isoformat(), "role": ROLE,
+                                     "model_prices_usd_per_million_tokens": config.MODEL_PRICES,
+                                     "cost_scope": "API tokens only; request_cost_usd excludes judge and hosting; stage cost_usd includes judge",
+                                     "query_encoder": "warm; query embedding cache cleared before each stage",
                                      "embed_model": config.ENT_EMBED_MODEL, "rerank_model": config.RERANK_MODEL,
                                      "answer_model": config.CHAT_MODEL, "judge_model": a.judge_model or config.JUDGE_MODEL or config.CHAT_MODEL,
                                      "wall_s": round(time.time() - t, 1)},
