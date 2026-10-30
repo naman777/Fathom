@@ -41,3 +41,20 @@ def test_summarize_separates_retrieval_and_generation():
     assert out["n_retrieval"] == 1 and out["n_generation"] == 2
     assert out["overall_score"] == 0.5 and out["factuality"] == 0.75
     assert out["retrieval_ms"]["p99"] == 300 and set(s.by_type(rows)) == {"basic", "info_not_found"}
+
+
+def test_request_cost_summary_preserves_legacy_estimates_without_repricing():
+    rows = [{"cost_usd": 0.001}, {"cost_usd": 0.003}]
+    cost = s.summarize(rows)["request_cost_usd"]
+    assert cost["mean"] == 0.002 and cost["total"] == 0.004 and cost["n"] == 2
+    assert cost["pricing_metadata_complete"] is False
+    assert s.request_cost_summary([{}]) == {}  # old retrieval runs have no per-query cost
+
+
+def test_request_cost_summary_does_not_report_partial_prices_as_free():
+    rows = [{"cost_usd": 0, "unpriced_models": ["unknown"]}, {"cost_usd": 0.002, "unpriced_models": []}]
+    cost = s.request_cost_summary(rows)
+    assert cost["mean"] is None and cost["total"] is None and cost["unpriced_models"] == ["unknown"]
+    assert s.request_cost_summary([{}, {"cost_usd": 0.002}])["mean"] is None
+    cost = s.request_cost_summary([{"cost_usd": 0, "unpriced_models": []}])
+    assert cost["mean"] == 0 and cost["pricing_metadata_complete"] is True

@@ -143,7 +143,7 @@ export default function Enterprise() {
                 <span className="ml-1">
                   · {info.index.chunks.toLocaleString()} passages indexed
                   {/* The full corpus is about 2.65M passages; anything well below that is a sample of it. */}
-                  {info.index.chunks > 0 && info.index.chunks < 2_000_000 && " (a sample of the 512k-document corpus)"}
+                  {info.index.chunks > 0 && info.index.chunks < 2_000_000 && " (demo subset for the hosting budget; full-corpus evaluation on Results)"}
                 </span>
               </p>
             )}
@@ -167,7 +167,7 @@ export default function Enterprise() {
               <div className="fade-up pt-[4vh] text-center">
                 <h1 className="text-2xl font-medium sm:text-3xl">Search the company&apos;s knowledge</h1>
                 <p className="mx-auto mt-3 max-w-xl text-base text-neutral-700 dark:text-neutral-400">
-                  Slack, email, tickets, wiki pages, CRM records and call transcripts from one simulated company. Pick a role above:{" "}
+                  Slack, email, tickets, wiki pages, CRM records and call transcripts from Onyx&apos;s public EnterpriseRAG-Bench, a synthetic company benchmark. Pick a role above:{" "}
                   <span className="highlight">each role only finds what it is allowed to read</span>.
                 </p>
                 <p className="mx-auto mt-2 max-w-xl text-xs text-muted-foreground">
